@@ -27,6 +27,8 @@ export interface AssayTask {
   attempts: string;
   payout_ready_at: string;
   disputed_at: string;
+  is_zk_mode: boolean;
+  zk_proof_hash: string;
 }
 
 export interface SpectrophotometryDataPoint {

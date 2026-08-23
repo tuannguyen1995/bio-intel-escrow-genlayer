@@ -1,6 +1,6 @@
 import { AssayTask } from '../types/escrow';
 
-export const DEFAULT_CONTRACT_ADDRESS = (import.meta as any).env.VITE_CONTRACT_ADDRESS || "0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85";
+export const DEFAULT_CONTRACT_ADDRESS = (import.meta as any).env.VITE_CONTRACT_ADDRESS || "0x7fa9f16047c5dcd78a6C0618F9a4e562DdAff81d";
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
@@ -97,6 +97,8 @@ export async function acceptAssayTaskOnChain(params: {
 export async function submitAssayTelemetryOnChain(params: {
   taskId: string;
   assayLogUrl: string;
+  isZkMode: boolean;
+  zkProofHash: string;
   userAddress: string;
   contractAddress?: string;
 }): Promise<string> {
@@ -116,7 +118,7 @@ export async function submitAssayTelemetryOnChain(params: {
   const hash = await client.writeContract({
     address: targetContract as `0x${string}`,
     functionName: 'submit_assay_telemetry',
-    args: [params.taskId, params.assayLogUrl],
+    args: [params.taskId, params.assayLogUrl, params.isZkMode, params.zkProofHash],
     value: 0n,
   });
 
@@ -127,6 +129,7 @@ export async function submitAssayTelemetryOnChain(params: {
 export async function raiseDisputeOnChain(params: {
   taskId: string;
   reason: string;
+  appealBondValue: bigint;
   userAddress: string;
   contractAddress?: string;
 }): Promise<string> {
@@ -147,7 +150,7 @@ export async function raiseDisputeOnChain(params: {
     address: targetContract as `0x${string}`,
     functionName: 'raise_dispute',
     args: [params.taskId, params.reason],
-    value: 0n,
+    value: params.appealBondValue,
   });
 
   await client.waitForTransactionReceipt({ hash });
@@ -175,6 +178,35 @@ export async function finalizePayoutOnChain(params: {
   const hash = await client.writeContract({
     address: targetContract as `0x${string}`,
     functionName: 'finalize_payout',
+    args: [params.taskId],
+    value: 0n,
+  });
+
+  await client.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+export async function resolveDisputeViaRefereeOnChain(params: {
+  taskId: string;
+  userAddress: string;
+  contractAddress?: string;
+}): Promise<string> {
+  if (typeof window === 'undefined' || !(window as any).ethereum) {
+    throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
+  }
+
+  const { createClient, chains } = await import('genlayer-js');
+  const client = createClient({
+    chain: chains.studionet,
+    provider: (window as any).ethereum,
+    account: params.userAddress as `0x${string}`,
+  });
+
+  const targetContract = params.contractAddress || DEFAULT_CONTRACT_ADDRESS;
+
+  const hash = await client.writeContract({
+    address: targetContract as `0x${string}`,
+    functionName: 'resolve_dispute_via_referee',
     args: [params.taskId],
     value: 0n,
   });

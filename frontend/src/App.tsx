@@ -21,6 +21,7 @@ import {
   raiseDisputeOnChain,
   finalizePayoutOnChain,
   resolveEscalationOnChain,
+  resolveDisputeViaRefereeOnChain,
 } from './utils/genlayer';
 import { Dna, RefreshCw, Layers, Wallet, AlertCircle, PlusCircle } from 'lucide-react';
 
@@ -194,7 +195,7 @@ export function App() {
     }
   };
 
-  const handleRaiseDispute = async (taskId: string, reason: string) => {
+  const handleRaiseDispute = async (taskId: string, reason: string, appealBondValue: bigint) => {
     if (!walletAddress) {
       await connectWallet();
     }
@@ -203,6 +204,7 @@ export function App() {
       await raiseDisputeOnChain({
         taskId,
         reason,
+        appealBondValue,
         userAddress: walletAddress,
         contractAddress,
       });
@@ -246,6 +248,23 @@ export function App() {
     } catch (err: any) {
       setErrorMessage(err.message || "On-chain arbitration failed");
       throw err;
+    }
+  };
+
+  const handleResolveReferee = async (taskId: string) => {
+    if (!walletAddress) {
+      await connectWallet();
+    }
+    setErrorMessage('');
+    try {
+      await resolveDisputeViaRefereeOnChain({
+        taskId,
+        userAddress: walletAddress,
+        contractAddress,
+      });
+      await loadData();
+    } catch (err: any) {
+      setErrorMessage(err.message || "AI Referee dispute resolution failed");
     }
   };
 
@@ -416,6 +435,7 @@ export function App() {
                   setActiveTaskForModal(t);
                   setIsResolveModalOpen(true);
                 }}
+                onResolveRefereeClick={(t) => handleResolveReferee(t.id)}
               />
             ))}
           </div>

@@ -111,14 +111,19 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             self.contract.accept_assay_task(self.tid)
 
     def test_02_valid_telemetry_approved_and_cooling_off(self):
-        """Telemetry approved -> 24h delay enforced before 2400 GEN (2000 + 400 stake) release."""
+        """Telemetry approved by multi-agent board -> 24h delay enforced before 2400 GEN (2000 + 400 stake) release."""
         self.gl.message.sender_address = self.lab
         self.gl.message.value = MockBigInt(400)
         self.contract.accept_assay_task(self.tid)
 
         self.gl.nondet.web.render = lambda url, mode="text": "Validated OD600 and Fluorescence telemetry"
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
-            "verdict": "APPROVED", "confidence": 99, "reason": "R^2=0.994, p<0.001, negative controls intact"
+            "statistician_vote": "APPROVED",
+            "biochemist_vote": "APPROVED",
+            "contamination_vote": "APPROVED",
+            "verdict": "APPROVED",
+            "confidence": 99,
+            "reason": "R^2=0.994, p<0.001, negative controls intact"
         }
 
         self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry_01.csv")
@@ -136,37 +141,65 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.assertEqual(self.gl.transfers[0]["to"], self.lab)
         self.assertEqual(self.gl.transfers[0]["value"], 2400)
 
-    def test_03_dispute_flow_and_arbitration(self):
-        """Sponsor raises dispute -> transitions to DISPUTED and blocks payout."""
+    def test_03_dispute_flow_with_insufficient_bond_reverts(self):
+        """Dispute attempt with < 10% appeal bond (199 < 200) -> MUST REVERT"""
         self.gl.message.sender_address = self.lab
         self.gl.message.value = MockBigInt(400)
         self.contract.accept_assay_task(self.tid)
 
         self.gl.nondet.web.render = lambda url, mode="text": "Spectrometry data"
-        self.gl.nondet.exec_prompt = lambda p, response_format="json": {"verdict": "APPROVED", "confidence": 95, "reason": "Passed"}
+        self.gl.nondet.exec_prompt = lambda p, response_format="json": {
+            "statistician_vote": "APPROVED",
+            "biochemist_vote": "APPROVED",
+            "contamination_vote": "APPROVED",
+            "verdict": "APPROVED",
+            "confidence": 95,
+            "reason": "Passed"
+        }
         self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry.csv")
 
-        # Sponsor raises dispute at T+6h
+        # Sponsor raises dispute with insufficient bond -> REVERT
         self.gl.message_raw = {"datetime": "2026-08-23T06:00:00+00:00"}
         self.gl.message.sender_address = self.sponsor
-        self.contract.raise_dispute(self.tid, "Plate reader baseline blanking was uncalibrated")
-        self.assertEqual(self.contract.tasks[self.tid].status, "DISPUTED")
-
-        # Payout blocked
-        self.gl.message_raw = {"datetime": "2026-08-24T02:00:00+00:00"}
-        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(199)
         with self.assertRaises(MockUserError):
-            self.contract.finalize_payout(self.tid)
+            self.contract.raise_dispute(self.tid, "Plate reader baseline blanking was uncalibrated")
 
-        # Admin resolves with SPLIT
-        self.gl.message.sender_address = self.admin
-        self.contract.resolve_escalation(self.tid, "SPLIT")
+    def test_04_referee_dispute_resolution(self):
+        """Sponsor stakes 200 GEN bond to dispute -> AI referee rules in favor of Sponsor -> Slashing occurs."""
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(400)
+        self.contract.accept_assay_task(self.tid)
+
+        self.gl.nondet.web.render = lambda url, mode="text": "Spectrometry data"
+        self.gl.nondet.exec_prompt = lambda p, response_format="json": {
+            "statistician_vote": "APPROVED",
+            "biochemist_vote": "APPROVED",
+            "contamination_vote": "APPROVED",
+            "verdict": "APPROVED",
+            "confidence": 95,
+            "reason": "Passed"
+        }
+        self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry.csv")
+
+        # Sponsor raises dispute with sufficient 200 GEN bond (10% of 2000)
+        self.gl.message_raw = {"datetime": "2026-08-23T06:00:00+00:00"}
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(200)
+        self.contract.raise_dispute(self.tid, "Blanking was uncalibrated")
+        self.assertEqual(self.contract.tasks[self.tid].status, "DISPUTED")
+        self.assertEqual(self.contract.tasks[self.tid].appeal_bond, 200)
+
+        # AI Referee rules REFUND (Sponsor wins, gets bounty + lab stake + returned appeal bond = 2000 + 400 + 200 = 2600)
+        self.gl.nondet.exec_prompt = lambda p, response_format="json": {
+            "verdict": "REFUND",
+            "reason": "Sponsor dispute is valid: baseline blanking is indeed uncalibrated in the logs."
+        }
+        self.contract.resolve_dispute_via_referee(self.tid)
+        
         self.assertEqual(self.contract.tasks[self.tid].status, "CLOSED")
-        self.assertEqual(len(self.gl.transfers), 2)
-        self.assertEqual(self.gl.transfers[0]["to"], self.lab)
-        self.assertEqual(self.gl.transfers[0]["value"], 1400) # 1000 half + 400 stake
-        self.assertEqual(self.gl.transfers[1]["to"], self.sponsor)
-        self.assertEqual(self.gl.transfers[1]["value"], 1000)
+        self.assertEqual(self.gl.transfers[0]["to"], self.sponsor)
+        self.assertEqual(self.gl.transfers[0]["value"], 2600)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

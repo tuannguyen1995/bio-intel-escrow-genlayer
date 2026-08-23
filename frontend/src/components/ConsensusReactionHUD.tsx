@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Sparkles } from 'lucide-react';
+import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Sparkles, Binary } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
 
 interface ConsensusReactionHUDProps {
@@ -14,10 +14,42 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
   const confidence = parseInt(task.confidence || '0', 10);
   const verdict = task.verdict || 'NONE';
 
-  const pValue = 0.002;
-  const driftPercent = 1.8;
-  const rSquared = 0.994;
-  const contaminationPassed = true;
+  // Parse Multi-Agent votes from the contract reason string
+  const reason = task.reason || '';
+  const match = reason.match(/\[Statistician:\s*(\w+)\s*\|\s*Biochemist:\s*(\w+)\s*\|\s*Contamination Guard:\s*(\w+)\]/);
+  const statisticianVote = match ? match[1] : 'NONE';
+  const biochemistVote = match ? match[2] : 'NONE';
+  const contaminationVote = match ? match[3] : 'NONE';
+
+  const getVoteColor = (v: string) => {
+    switch (v) {
+      case 'APPROVED':
+        return 'text-bio-emerald';
+      case 'PARTIAL':
+        return 'text-bio-cyan';
+      case 'REFUND':
+        return 'text-bio-amber';
+      case 'ESCALATE':
+        return 'text-bio-crimson';
+      default:
+        return 'text-slate-500';
+    }
+  };
+
+  const getVoteBarWidth = (v: string) => {
+    switch (v) {
+      case 'APPROVED':
+        return '100%';
+      case 'PARTIAL':
+        return '70%';
+      case 'REFUND':
+        return '40%';
+      case 'ESCALATE':
+        return '10%';
+      default:
+        return '0%';
+    }
+  };
 
   const getVerdictBadgeClass = (v: string) => {
     switch (v) {
@@ -44,15 +76,20 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="font-mono font-bold text-sm text-slate-100 uppercase tracking-wide">
-                Consensus Reaction HUD — Multi-Node Validation Radar
+              <h3 className="font-mono font-bold text-sm text-slate-100 uppercase tracking-wide flex items-center gap-1.5">
+                Consensus Reaction HUD — Multi-Agent Board
+                {task.is_zk_mode && (
+                  <span className="flex items-center gap-1 bg-bio-emerald/15 border border-bio-emerald/30 text-bio-emerald text-[9px] px-1.5 py-0.2 rounded font-mono lowercase">
+                    <ShieldCheck className="w-3 h-3" /> zk-shielded
+                  </span>
+                )}
               </h3>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase font-bold ${getVerdictBadgeClass(verdict)}`}>
                 Verdict: {verdict}
               </span>
             </div>
             <p className="text-xs font-mono text-slate-400">
-              Evaluated on GenVM Validator Nodes • Confidence Threshold: 65% Minimum
+              Evaluated via 3 Independent Scientific LLM Agents • Confidence Threshold: 65% Min
             </p>
           </div>
         </div>
@@ -68,55 +105,55 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
         )}
       </div>
 
-      {/* Radar Metric Breakdown */}
+      {/* Multi-Agent Voting Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 font-mono">
         
-        {/* P-Value Verification */}
+        {/* Agent 1: Statistician */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">P-Value Verification</span>
-            <CheckCircle className="w-3.5 h-3.5 text-bio-emerald" />
-          </div>
-          <p className="text-xl font-bold text-bio-emerald">p = {pValue}</p>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div className="bg-bio-emerald h-full rounded-full" style={{ width: '92%' }}></div>
-          </div>
-          <span className="text-[10px] text-slate-500 mt-1 block">Limit: p &lt; 0.01 (Passed)</span>
-        </div>
-
-        {/* Statistical Tolerance Drift */}
-        <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
-          <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">Statistical Drift</span>
+            <span className="uppercase text-[10px]">1. Statistician Agent</span>
             <Activity className="w-3.5 h-3.5 text-bio-cyan" />
           </div>
-          <p className="text-xl font-bold text-bio-cyan">±{driftPercent}%</p>
+          <p className={`text-lg font-bold ${getVoteColor(statisticianVote)}`}>{statisticianVote}</p>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div className="bg-bio-cyan h-full rounded-full" style={{ width: '85%' }}></div>
+            <div className={`h-full rounded-full bg-bio-cyan`} style={{ width: getVoteBarWidth(statisticianVote) }}></div>
           </div>
-          <span className="text-[10px] text-slate-500 mt-1 block">R² = {rSquared} (Linearity &gt; 0.98)</span>
+          <span className="text-[9px] text-slate-500 mt-1 block">Validates R², p-value, drift</span>
         </div>
 
-        {/* Cross-Contamination Check */}
+        {/* Agent 2: Biochemist Expert */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">Cross-Contamination</span>
+            <span className="uppercase text-[10px]">2. Biochemist Agent</span>
+            <Binary className="w-3.5 h-3.5 text-bio-emerald" />
+          </div>
+          <p className={`text-lg font-bold ${getVoteColor(biochemistVote)}`}>{biochemistVote}</p>
+          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div className={`h-full rounded-full bg-bio-emerald`} style={{ width: getVoteBarWidth(biochemistVote) }}></div>
+          </div>
+          <span className="text-[9px] text-slate-500 mt-1 block">Validates chemistry setup</span>
+        </div>
+
+        {/* Agent 3: Contamination Guard */}
+        <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
+          <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+            <span className="uppercase text-[10px]">3. Contamination Guard</span>
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <p className="text-xl font-bold text-emerald-400">CLEAN</p>
+          <p className={`text-lg font-bold ${getVoteColor(contaminationVote)}`}>{contaminationVote}</p>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-            <div className="bg-emerald-400 h-full rounded-full" style={{ width: '100%' }}></div>
+            <div className={`h-full rounded-full bg-emerald-400`} style={{ width: getVoteBarWidth(contaminationVote) }}></div>
           </div>
-          <span className="text-[10px] text-slate-500 mt-1 block">Negative Controls Intact</span>
+          <span className="text-[9px] text-slate-500 mt-1 block">Checks negative controls</span>
         </div>
 
-        {/* AI Confidence Meter */}
+        {/* Column 4: AI Confidence Meter */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">GenVM Consensus</span>
+            <span className="uppercase text-[10px]">Consensus Confidence</span>
             <Flame className="w-3.5 h-3.5 text-bio-amber" />
           </div>
-          <p className="text-xl font-bold text-slate-100">{confidence}%</p>
+          <p className="text-lg font-bold text-slate-100">{confidence}%</p>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
             <div
               className={`h-full rounded-full ${
@@ -125,7 +162,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
               style={{ width: `${confidence}%` }}
             ></div>
           </div>
-          <span className="text-[10px] text-slate-500 mt-1 block">Deterministic Consensus</span>
+          <span className="text-[9px] text-slate-500 mt-1 block">Requires &gt;= 65% confidence</span>
         </div>
 
       </div>

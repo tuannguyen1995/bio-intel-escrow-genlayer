@@ -96,8 +96,8 @@ export const AIConsensusModal: React.FC<AIConsensusModalProps> = ({
             <div className="flex items-center space-x-2.5">
               <Sparkles className={`w-4 h-4 ${step >= 3 ? 'text-bio-emerald' : 'text-slate-600'}`} />
               <div>
-                <span className="font-bold block">3. Leader Node LLM Quantitative Evaluation</span>
-                <span className="text-[10px] text-slate-400">gl.nondet.exec_prompt(DeSci_Replication_Framework)</span>
+                <span className="font-bold block">3. Multi-Agent Peer-Review (3 Scientific LLM Personas)</span>
+                <span className="text-[10px] text-slate-400">gl.nondet.exec_prompt(Statistician, Biochemist, Contamination Guard)</span>
               </div>
             </div>
             {step === 3 && <Loader2 className="w-4 h-4 text-bio-emerald animate-spin" />}

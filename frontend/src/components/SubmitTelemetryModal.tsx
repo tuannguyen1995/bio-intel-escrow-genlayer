@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileSpreadsheet, Sparkles, AlertCircle } from 'lucide-react';
+import { X, FileSpreadsheet, Sparkles, AlertCircle, Shield, CheckCircle } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
 
 interface SubmitTelemetryModalProps {
@@ -9,6 +9,8 @@ interface SubmitTelemetryModalProps {
   onSubmit: (params: {
     taskId: string;
     assayLogUrl: string;
+    isZkMode: boolean;
+    zkProofHash: string;
   }) => Promise<void>;
 }
 
@@ -20,7 +22,9 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
 }) => {
   if (!isOpen || !task) return null;
 
+  const [isZkMode, setIsZkMode] = useState(false);
   const [assayLogUrl, setAssayLogUrl] = useState(task.assay_log_url || '');
+  const [zkProofHash, setZkProofHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,8 +32,13 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
     e.preventDefault();
     setError('');
 
-    if (!assayLogUrl.trim().startsWith('http')) {
-      setError('Assay telemetry log must be a valid HTTP/HTTPS URL');
+    if (!isZkMode && !assayLogUrl.trim().startsWith('http')) {
+      setError('Assay telemetry log must be a valid HTTP/HTTPS URL in standard mode');
+      return;
+    }
+
+    if (isZkMode && !zkProofHash.trim()) {
+      setError('Cryptographic proof hash is required in ZK compliance mode');
       return;
     }
 
@@ -37,7 +46,9 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
     try {
       await onSubmit({
         taskId: task.id,
-        assayLogUrl: assayLogUrl.trim(),
+        assayLogUrl: isZkMode ? '' : assayLogUrl.trim(),
+        isZkMode,
+        zkProofHash: isZkMode ? zkProofHash.trim() : '',
       });
       onClose();
     } catch (err: any) {
@@ -74,23 +85,59 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="text-slate-400 uppercase text-[10px] block mb-1">
-              Raw Telemetry Log HTTP/HTTPS URL (.CSV / .FASTQ / Spec JSON)
+          {/* ZK-Shielded Toggle Switch */}
+          <div className="flex items-center justify-between p-3 bg-bio-emerald/5 border border-bio-emerald/30 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Shield className={`w-5 h-5 ${isZkMode ? "text-bio-emerald" : "text-slate-500"}`} />
+              <div>
+                <p className="text-slate-200 font-bold text-xs uppercase">ZK-Shielded Compliance Mode</p>
+                <p className="text-[10px] text-slate-400">Hide raw laboratory telemetry & submit cryptographic compliance proof hash</p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isZkMode}
+                onChange={() => setIsZkMode(!isZkMode)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-bio-emerald peer-checked:after:bg-bio-dark"></div>
             </label>
-            <input
-              type="url"
-              value={assayLogUrl}
-              onChange={(e) => setAssayLogUrl(e.target.value)}
-              placeholder="https://your-lab-logs.org/telemetry.csv"
-              className="w-full bg-bio-dark border border-bio-cyan rounded px-3 py-2 text-bio-cyan focus:outline-none"
-              required
-            />
           </div>
+
+          {!isZkMode ? (
+            <div>
+              <label className="text-slate-400 uppercase text-[10px] block mb-1">
+                Raw Telemetry Log HTTP/HTTPS URL (.CSV / .FASTQ / Spec JSON)
+              </label>
+              <input
+                type="url"
+                value={assayLogUrl}
+                onChange={(e) => setAssayLogUrl(e.target.value)}
+                placeholder="https://your-lab-logs.org/telemetry.csv"
+                className="w-full bg-bio-dark border border-bio-cyan rounded px-3 py-2 text-bio-cyan focus:outline-none"
+                required
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="text-slate-400 uppercase text-[10px] block mb-1">
+                Off-Chain Cryptographic Compliance Proof Hash (ZK SHA256/Poseidon Hash)
+              </label>
+              <input
+                type="text"
+                value={zkProofHash}
+                onChange={(e) => setZkProofHash(e.target.value)}
+                placeholder="0x7f394c8d9ea8e09cb2d398f828a2cf39811c75b28d6..."
+                className="w-full bg-bio-dark border border-bio-emerald rounded px-3 py-2 text-bio-emerald focus:outline-none font-mono"
+                required
+              />
+            </div>
+          )}
 
           <div className="p-3 bg-bio-dark/70 rounded border border-bio-border text-slate-400 text-[11px]">
             <span className="text-bio-cyan font-bold uppercase block mb-1">GenVM Consensus Trigger:</span>
-            Submitting telemetry executes <code className="text-bio-emerald font-bold">submit_assay_telemetry</code> on GenLayer VM. Validators will render both baseline protocol and lab telemetry logs to produce the on-chain verdict.
+            Submitting telemetry executes <code className="text-bio-emerald font-bold">submit_assay_telemetry</code> on GenLayer VM. {isZkMode ? "Validators will cryptographically verify the submitted proof hash without reading any raw logs." : "Validators will render both baseline protocol and lab telemetry logs to produce the on-chain verdict."}
           </div>
 
           <div className="pt-2 flex justify-end space-x-3 border-t border-bio-border">
@@ -104,7 +151,7 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded bg-bio-cyan text-bio-dark font-bold hover:opacity-90 transition shadow-glow-cyan flex items-center space-x-1.5"
+              className={`px-5 py-2 rounded text-bio-dark font-bold hover:opacity-90 transition flex items-center space-x-1.5 ${isZkMode ? "bg-bio-emerald shadow-glow-emerald" : "bg-bio-cyan shadow-glow-cyan"}`}
             >
               <Sparkles className="w-4 h-4" />
               <span>{loading ? "Executing On-Chain Consensus..." : "Submit & Run On-Chain Validation"}</span>

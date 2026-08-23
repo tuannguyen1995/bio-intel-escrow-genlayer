@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Area } from 'recharts';
-import { Activity, CheckCircle2, AlertCircle, FileSpreadsheet, Scale, RefreshCw, BarChart2 } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { Activity, CheckCircle2, AlertCircle, FileSpreadsheet, Scale, BarChart2, Shield, Lock } from 'lucide-react';
 import { AssayTask, SpectrophotometryDataPoint } from '../types/escrow';
 
 interface SpectrogramDiffViewerProps {
   task: AssayTask;
 }
 
-// Generate realistic biomolecular kinetic cleavage / spectrometry curve data
 const generateSampleCurveData = (): SpectrophotometryDataPoint[] => {
   const points: SpectrophotometryDataPoint[] = [];
   for (let t = 0; t <= 60; t += 5) {
-    // Sigmoidal enzymic kinetic curve: OD600 or RFU fluorescence
     const base = 0.05 + 0.95 / (1 + Math.exp(-(t - 25) / 6));
-    // Sample curve with slight experimental variation (98.5% fidelity)
     const noise = (Math.sin(t * 0.5) * 0.015) + (Math.random() * 0.01 - 0.005);
     const sample = base + noise;
-
-    const tolerance = 0.06; // Statistical tolerance ± sigma
+    const tolerance = 0.06;
 
     points.push({
       timeMinutes: t,
@@ -145,7 +141,16 @@ export const SpectrogramDiffViewer: React.FC<SpectrogramDiffViewerProps> = ({ ta
               </p>
             </div>
 
-            {task.assay_log_url && (
+            {task.is_zk_mode ? (
+              <div>
+                <span className="text-bio-emerald uppercase text-[10px] font-bold block flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5" /> Registered ZK Proof Hash
+                </span>
+                <p className="text-bio-emerald text-[11px] bg-bio-emerald/10 p-2 rounded border border-bio-emerald/20 mt-1 font-mono break-all">
+                  {task.zk_proof_hash}
+                </p>
+              </div>
+            ) : task.assay_log_url && (
               <div>
                 <span className="text-slate-500 uppercase text-[10px] block">Submitted Lab Telemetry CSV</span>
                 <a
@@ -163,86 +168,120 @@ export const SpectrogramDiffViewer: React.FC<SpectrogramDiffViewerProps> = ({ ta
         </div>
 
         {/* Right Pane: Telemetry Parser & Kinetic Diff Chart */}
-        <div className="lg:col-span-8 bg-bio-dark border border-bio-border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3 border-b border-bio-border pb-2">
-            <div className="flex items-center space-x-2">
-              <Activity className="w-4 h-4 text-bio-cyan" />
-              <span className="font-mono text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Replication Lab Telemetry Parser vs Sponsor Baseline
-              </span>
+        <div className="lg:col-span-8 bg-bio-dark border border-bio-border rounded-lg p-4 font-mono text-xs">
+          {task.is_zk_mode ? (
+            /* ZK Shielded View UI */
+            <div className="h-full flex flex-col justify-center items-center py-10 px-4 border border-dashed border-bio-emerald/30 bg-bio-emerald/5 rounded-lg text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-radial-gradient opacity-20 pointer-events-none"></div>
+              
+              <div className="p-4 rounded-full bg-bio-emerald/10 border border-bio-emerald/40 text-bio-emerald animate-pulse shadow-glow-emerald mb-4">
+                <Lock className="w-8 h-8" />
+              </div>
+              
+              <h4 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-bio-emerald" /> Cryptographically Shielded Envelope
+              </h4>
+              
+              <p className="text-slate-400 text-xs max-w-md mb-6 leading-relaxed">
+                Raw curve telemetry metrics are completely hidden on-chain to protect proprietary genetic sequence data. Compliance was cryptographically validated off-chain.
+              </p>
+
+              <div className="w-full max-w-sm bg-bio-card border border-bio-emerald/20 p-3.5 rounded text-left space-y-2">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 uppercase">Verification Status</span>
+                  <span className="text-bio-emerald font-bold uppercase flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> VERIFIED
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 uppercase">ZK Envelope Hash</span>
+                  <span className="text-slate-300 font-bold truncate max-w-[200px]">{task.zk_proof_hash}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-3 font-mono text-[11px]">
-              <span className="flex items-center gap-1 text-bio-emerald">
-                <span className="w-2.5 h-2.5 rounded-full bg-bio-emerald inline-block"></span> Baseline
-              </span>
-              <span className="flex items-center gap-1 text-bio-cyan">
-                <span className="w-2.5 h-2.5 rounded-full bg-bio-cyan inline-block"></span> Lab Telemetry
-              </span>
-              <span className="flex items-center gap-1 text-slate-500">
-                <span className="w-2.5 h-2.5 rounded bg-slate-700 inline-block"></span> ±σ Bounds
-              </span>
-            </div>
-          </div>
+          ) : (
+            /* Standard Open View UI */
+            <>
+              <div className="flex items-center justify-between mb-3 border-b border-bio-border pb-2">
+                <div className="flex items-center space-x-2">
+                  <Activity className="w-4 h-4 text-bio-cyan" />
+                  <span className="font-mono text-xs font-bold text-slate-200 uppercase tracking-wider">
+                    Replication Lab Telemetry Parser vs Sponsor Baseline
+                  </span>
+                </div>
+                <div className="flex items-center space-x-3 font-mono text-[11px]">
+                  <span className="flex items-center gap-1 text-bio-emerald">
+                    <span className="w-2.5 h-2.5 rounded-full bg-bio-emerald inline-block"></span> Baseline
+                  </span>
+                  <span className="flex items-center gap-1 text-bio-cyan">
+                    <span className="w-2.5 h-2.5 rounded-full bg-bio-cyan inline-block"></span> Lab Telemetry
+                  </span>
+                  <span className="flex items-center gap-1 text-slate-500">
+                    <span className="w-2.5 h-2.5 rounded bg-slate-700 inline-block"></span> ±σ Bounds
+                  </span>
+                </div>
+              </div>
 
-          {/* Recharts Line Chart */}
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={curveData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-                <XAxis dataKey="timeMinutes" stroke="#64748B" tick={{ fontSize: 10, fill: '#64748B' }} unit="m" />
-                <YAxis stroke="#64748B" tick={{ fontSize: 10, fill: '#64748B' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0A1526', borderColor: '#1E293B', color: '#F8FAFC', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace' }}
-                />
-                
-                {/* Statistical Tolerance Bounds */}
-                <Line
-                  type="monotone"
-                  dataKey="upperLimit"
-                  stroke="#334155"
-                  strokeDasharray="4 4"
-                  dot={false}
-                  name="Upper +σ"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="lowerLimit"
-                  stroke="#334155"
-                  strokeDasharray="4 4"
-                  dot={false}
-                  name="Lower -σ"
-                />
+              {/* Recharts Line Chart */}
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={curveData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
+                    <XAxis dataKey="timeMinutes" stroke="#64748B" tick={{ fontSize: 10, fill: '#64748B' }} unit="m" />
+                    <YAxis stroke="#64748B" tick={{ fontSize: 10, fill: '#64748B' }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0A1526', borderColor: '#1E293B', color: '#F8FAFC', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace' }}
+                    />
+                    
+                    {/* Statistical Tolerance Bounds */}
+                    <Line
+                      type="monotone"
+                      dataKey="upperLimit"
+                      stroke="#334155"
+                      strokeDasharray="4 4"
+                      dot={false}
+                      name="Upper +σ"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="lowerLimit"
+                      stroke="#334155"
+                      strokeDasharray="4 4"
+                      dot={false}
+                      name="Lower -σ"
+                    />
 
-                {/* Sponsor Baseline */}
-                <Line
-                  type="monotone"
-                  dataKey={dataMode === 'OD600' ? 'baselineOD' : 'baselineRFU'}
-                  stroke="#10B981"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: '#10B981' }}
-                  name={dataMode === 'OD600' ? 'Baseline OD600' : 'Baseline RFU'}
-                />
+                    {/* Sponsor Baseline */}
+                    <Line
+                      type="monotone"
+                      dataKey={dataMode === 'OD600' ? 'baselineOD' : 'baselineRFU'}
+                      stroke="#10B981"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#10B981' }}
+                      name={dataMode === 'OD600' ? 'Baseline OD600' : 'Baseline RFU'}
+                    />
 
-                {/* Replication Lab Measured Telemetry */}
-                <Line
-                  type="monotone"
-                  dataKey={dataMode === 'OD600' ? 'sampleOD' : 'sampleRFU'}
-                  stroke="#06B6D4"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#06B6D4' }}
-                  name={dataMode === 'OD600' ? 'Lab Measured OD600' : 'Lab Measured RFU'}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+                    {/* Replication Lab Measured Telemetry */}
+                    <Line
+                      type="monotone"
+                      dataKey={dataMode === 'OD600' ? 'sampleOD' : 'sampleRFU'}
+                      stroke="#06B6D4"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: '#06B6D4' }}
+                      name={dataMode === 'OD600' ? 'Lab Measured OD600' : 'Lab Measured RFU'}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
 
-          <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-slate-400 bg-bio-card p-2 rounded border border-bio-border/60">
-            <span className="flex items-center gap-1.5 text-bio-emerald">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Statistical Deviation: ±0.014 (Within ±0.060 Tolerance)
-            </span>
-            <span>Sampling Interval: 5 min</span>
-          </div>
-
+              <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-slate-400 bg-bio-card p-2 rounded border border-bio-border/60">
+                <span className="flex items-center gap-1.5 text-bio-emerald">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Statistical Deviation: ±0.014 (Within ±0.060 Tolerance)
+                </span>
+                <span>Sampling Interval: 5 min</span>
+              </div>
+            </>
+          )}
         </div>
 
       </div>

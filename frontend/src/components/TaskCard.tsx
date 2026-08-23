@@ -13,6 +13,7 @@ interface TaskCardProps {
   onRaiseDisputeClick: (task: AssayTask) => void;
   onFinalizePayoutClick: (task: AssayTask) => void;
   onResolveEscalationClick: (task: AssayTask) => void;
+  onResolveRefereeClick?: (task: AssayTask) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -26,6 +27,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onRaiseDisputeClick,
   onFinalizePayoutClick,
   onResolveEscalationClick,
+  onResolveRefereeClick,
 }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -168,14 +170,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </>
           )}
 
-          {/* DISPUTED / ESCALATED: Resolve Escalation */}
+          {/* DISPUTED / ESCALATED: Resolve Escalation & AI Referee */}
           {(task.status === 'DISPUTED' || task.status === 'ESCALATED') && (
-            <button
-              onClick={() => onResolveEscalationClick(task)}
-              className="px-3 py-1.5 rounded bg-purple-500/20 border border-purple-500/50 text-purple-300 font-mono text-xs font-bold hover:bg-purple-500 hover:text-white transition"
-            >
-              Arbitrate Escalation
-            </button>
+            <div className="flex gap-1.5">
+              {task.status === 'DISPUTED' && onResolveRefereeClick && (
+                <button
+                  onClick={() => onResolveRefereeClick(task)}
+                  className="px-3 py-1.5 rounded bg-bio-emerald/20 border border-bio-emerald/50 text-bio-emerald font-mono text-xs font-bold hover:bg-bio-emerald hover:text-bio-dark transition"
+                >
+                  Run AI Referee
+                </button>
+              )}
+              <button
+                onClick={() => onResolveEscalationClick(task)}
+                className="px-3 py-1.5 rounded bg-purple-500/20 border border-purple-500/50 text-purple-300 font-mono text-xs font-bold hover:bg-purple-500 hover:text-white transition"
+              >
+                Arbitrate
+              </button>
+            </div>
           )}
 
         </div>
