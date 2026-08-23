@@ -10,24 +10,26 @@
 
 🔗 **Live Vercel Application**: [https://bio-intel-escrow-genlayer.vercel.app](https://bio-intel-escrow-genlayer.vercel.app)  
 🐙 **GitHub Repository**: [https://github.com/tuannguyen1995/bio-intel-escrow-genlayer](https://github.com/tuannguyen1995/bio-intel-escrow-genlayer)  
-📝 **Deployed Contract (Studionet)**: [`0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85`](https://genlayer-explorer.vercel.app/address/0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85)
+📝 **Deployed Contract (Studionet)**: [`0x7fa9f16047c5dcd78a6C0618F9a4e562DdAff81d`](https://genlayer-explorer.vercel.app/address/0x7fa9f16047c5dcd78a6C0618F9a4e562DdAff81d)
 
 ---
 
 ## 🧬 Architectural Highlights
 
-### 1. Multi-Agent AI VM Consensus
+### 1. Multi-Agent AI VM Consensus Board
 - **Anti-Rugpull Guard**: Automatically renders the baseline protocol specification from the sponsor's HTTP/HTTPS endpoint using `gl.nondet.web.render` to protect the replication lab against broken or 404 specifications.
-- **Anti-Spam Guard**: Validates the submitted lab telemetry log URL prior to triggering LLM evaluation.
-- **Deterministic Consensus Framework**: Evaluates kinetic curve linearity ($R^2 > 0.98$), p-value thresholds ($p < 0.01$), coefficient of variation ($CV < 5\%$), and negative control baseline integrity.
+- **Multi-Agent Peer-Review**: Evaluates telemetry using three independent scientific LLM agent personas (Statistician, Biochemist, Contamination Guard) on-chain. Consensus requires a majority (at least 2 out of 3 votes).
+- **ZK-Telemetry Mode**: Allows laboratories to upload a cryptographic hash of their telemetry (`zk_proof_hash`) to verify statistical compliance without exposing raw genomic sequences or proprietary chemical formulas on-chain.
 
 ### 2. Mandatory 20% Lab Staking & Slashing
 - Independent replication labs must deposit a minimum **20% stake** relative to the escrow bounty to lock a task.
 - **Slashing Mechanism**: Two consecutive failed validation attempts (verdict: REFUND) close the task, transferring 100% of the sponsor escrow bounty and the slashed lab stake to the sponsor DAO.
 
-### 3. 24-Hour Dispute Cooling-Off Window
-- Once the AI consensus outputs an `APPROVED` or `PARTIAL` verdict, funds are locked in a **24-hour cooling-off window (86,400 seconds)**.
-- During this window, sponsors or labs can call `raise_dispute()` to freeze payouts and route the task to platform admins for human arbitration (`RELEASE`, `REFUND`, or `SPLIT`).
+### 3. 24-Hour Dispute Window, Appeal Bonds & AI Referee
+- Once consensus outputs an `APPROVED` or `PARTIAL` verdict, funds enter a **24-hour cooling-off window**.
+- **10% Appeal Bond Staking**: Raising a dispute requires staking a **10% Appeal Bond** in GEN to prevent spam disputes.
+- **AI Referee Arbitration**: Disputed tasks are adjudicated on-chain by an automated AI Referee (`resolve_dispute_via_referee`). If the dispute is valid, the sponsor gets refunded and the lab's stake is slashed. If invalid, the lab receives the bounty, lab stake, and slashed sponsor appeal bond.
+
 
 ---
 
