@@ -1,154 +1,98 @@
 # BioIntelEscrow (Decentralized Open-Science Protocol & Biomolecular Assay Replication Escrow)
 
+[![Live Demo](https://img.shields.io/badge/Vercel_Live_App-BioIntelEscrow-000000?style=for-the-badge&logo=vercel)](https://bio-intel-escrow.vercel.app)
 [![GenLayer Contract Standard](https://img.shields.io/badge/GenLayer-v0.2.18-10B981?style=for-the-badge&logo=python)](https://genlayer.com)
 [![GenLayer Score](https://img.shields.io/badge/GenLayer_Score-5.0_Verified-06B6D4?style=for-the-badge)](https://genlayer.com)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
 
-**BioIntelEscrow** is a decentralized open-science protocol and biomolecular assay replication escrow platform built on GenLayer. It enables research sponsors and DAOs to post bounties for independent replication laboratories to validate biomolecular experimental protocols (such as CRISPR Cas12a cleavage kinetics, recombinant protein yields, or RT-qPCR assay sensitivity).
+**BioIntelEscrow** là nền tảng ký quỹ nghiên cứu khoa học mở và nhân bản thí nghiệm sinh học phân tử (DeSci) phi tập trung trên GenLayer. Nền tảng cho phép các quỹ nghiên cứu/DAO (Sponsor) treo giải thưởng bounty cho các phòng lab độc lập (Replication Labs) để nhân bản và thẩm định quy trình thí nghiệm (tinh sạch enzyme, biểu hiện protein, assay độ nhạy PCR, CRISPR Cas12a cleavage).
+
+🔗 **Live Vercel Application**: [https://bio-intel-escrow.vercel.app](https://bio-intel-escrow.vercel.app)  
+🐙 **GitHub Repository**: [https://github.com/tuannguyen1995/BioIntelEscrow](https://github.com/tuannguyen1995/BioIntelEscrow)
 
 ---
 
-## 🧬 Key Features & Architectural Overview
+## 🧬 Architectural Highlights
 
-### 1. GenLayer AI VM Consensus
-- **Anti-Rugpull Guard**: Evaluates baseline protocol specifications fetched live from HTTP/HTTPS endpoints via `gl.nondet.web.render`. Protects replication labs against broken/missing protocol specs.
-- **Anti-Spam Guard**: Validates submitted raw lab telemetry log URLs before AI prompt execution.
-- **Multi-Agent Evaluation**: Consensus validators run deterministic decision frameworks checking kinetic linearity ($R^2 > 0.98$), p-value thresholds ($p < 0.01$), coefficient of variation ($CV < 5\%$), and negative control integrity.
+### 1. Multi-Agent AI VM Consensus
+- **Anti-Rugpull Guard**: Tự động render baseline protocol spec từ HTTP/HTTPS endpoint qua `gl.nondet.web.render`. Bảo vệ phòng lab chống lại protocol hỏng hoặc lỗi 404.
+- **Anti-Spam Guard**: Kiểm tra URL file log thực nghiệm / CSV telemetry trước khi chạy LLM evaluation.
+- **Deterministic Consensus Framework**: So sánh độ tuyến tính $R^2 > 0.98$, ngưỡng p-value $p < 0.01$, hệ số biến thiên $CV < 5\%$, và tính toàn vẹn của kênh negative controls.
 
 ### 2. Mandatory 20% Lab Staking & Slashing
-- Replication labs must deposit a minimum **20% stake** relative to the bounty escrow to lock an assay task.
-- **Slashing Mechanism**: Two consecutive failed attempts result in task closure, returning 100% of the sponsor escrow bounty **plus the slashed lab stake** to the sponsor DAO.
+- Phòng lab độc lập phải đặt cọc tối thiểu **20% stake** tương ứng giá trị escrow để nhận thí nghiệm.
+- **Cơ chế Slashing**: Sau 2 lần thất bại liên tiếp (REFUND), task bị đóng và toàn bộ khoản escrow **cùng tiền cọc bị slash của Lab** sẽ chuyển hoàn cho Sponsor DAO.
 
 ### 3. 24-Hour Dispute Cooling-Off Window
-- Payout finalization is locked for **86,400 seconds (24 hours)** post-`APPROVED` / `PARTIAL` verdict.
-- Sponsors or labs can trigger `raise_dispute()` during this window to freeze funds and request human arbitration (`RELEASE`, `REFUND`, or `SPLIT`).
+- Sau khi kết quả AI đạt `APPROVED` hoặc `PARTIAL`, tiền được khóa trong **24 giờ (86,400 giây)**.
+- Trong thời gian này, Sponsor hoặc Lab có thể nhấn `raise_dispute()` để đóng băng payout và gửi yêu cầu phân xử (`RELEASE`, `REFUND`, `SPLIT`).
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-BioIntelEscrow_tyna/
+BioIntelEscrow/
 ├── contracts/
-│   └── BioIntelEscrow.py            # Intelligent GenLayer smart contract in Python
+│   └── BioIntelEscrow.py            # Smart Contract GenLayer viết bằng Python
 ├── tests/
-│   └── test_bio_intel_escrow.py     # Python unit test suite mocking GenLayer VM runtime
+│   └── test_bio_intel_escrow.py     # Bộ unit test giả lập môi trường GenLayer VM
 ├── scripts/
-│   └── verify_contract.py           # Verification script & test runner
-├── frontend/                        # DeSci Cyber-Laboratory HUD UI
+│   └── verify_contract.py           # Script tự động kiểm tra cú pháp và chạy unit test
+├── frontend/                        # Giao diện DeSci Cyber-Laboratory HUD UI
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Navbar.tsx           # DeSci HUD header & role switcher
-│   │   │   ├── StatsOverview.tsx    # TVL, active experiments & AI accuracy cards
-│   │   │   ├── SpectrogramDiffViewer.tsx # Dual-pane Spectrogram & Kinetic curve parser
-│   │   │   ├── ConsensusReactionHUD.tsx  # Radar metric breakdown & confidence score
-│   │   │   ├── CountdownClock.tsx   # 24h Space-Station LED countdown clock
-│   │   │   ├── TaskCard.tsx         # Assay bounty task card with status badges
-│   │   │   ├── CreateTaskModal.tsx  # Sponsor modal to post bounties
-│   │   │   ├── AcceptTaskModal.tsx  # Lab modal for 20% stake deposit
-│   │   │   ├── SubmitTelemetryModal.tsx # Lab modal to submit telemetry CSV/logs
-│   │   │   ├── RaiseDisputeModal.tsx# Dispute modal during 24h cooling-off
-│   │   │   ├── ResolveEscalationModal.tsx # Admin/Sponsor arbitration modal
-│   │   │   └── AIConsensusModal.tsx # Step-by-step AI VM execution animation
+│   │   │   ├── Navbar.tsx           # Header HUD & Role Switcher
+│   │   │   ├── StatsOverview.tsx    # Card TVL, thí nghiệm active & điểm AI
+│   │   │   ├── SpectrogramDiffViewer.tsx # Dual-Pane xem thông số & đồ thị Kinetic
+│   │   │   ├── ConsensusReactionHUD.tsx  # Radar metric breakdown & AI confidence
+│   │   │   ├── CountdownClock.tsx   # Đồng hồ LED đếm ngược 24h khiếu nại
+│   │   │   ├── TaskCard.tsx         # Card hiển thị bounty & action status
+│   │   │   ├── CreateTaskModal.tsx  # Form tạo bounty dành cho Sponsor
+│   │   │   ├── AcceptTaskModal.tsx  # Form đặt cọc 20% dành cho Lab
+│   │   │   ├── SubmitTelemetryModal.tsx # Form nộp log telemetry (kèm 4 presets)
+│   │   │   ├── RaiseDisputeModal.tsx# Form mở khiếu nại trong 24h
+│   │   │   ├── ResolveEscalationModal.tsx # Panel phân xử dành cho Admin/Sponsor
+│   │   │   └── AIConsensusModal.tsx # Visualizer mô phỏng multi-node AI consensus
 │   │   ├── types/
-│   │   │   └── escrow.ts            # TypeScript interfaces & status definitions
+│   │   │   └── escrow.ts
 │   │   ├── utils/
-│   │   │   └── genlayer.ts          # genlayer-js integration with simulation fallback
-│   │   ├── App.tsx                  # Primary HUD application layout
-│   │   ├── index.css                # Deep Bio-Dark theme & sci-fi glow styles
+│   │   │   └── genlayer.ts          # Tích hợp genlayer-js v0.2.x & simulation fallback
+│   │   ├── App.tsx
+│   │   ├── index.css                # CSS Bio-Dark theme & sci-fi glow
 │   │   └── main.tsx
 │   ├── package.json
 │   └── vite.config.ts
+├── vercel.json
 └── README.md
 ```
 
 ---
 
-## ⚡ Quick Start & Verification
+## ⚡ Verification & Deployment Guide
 
-### 1. Smart Contract Verification & Unit Tests
-Run the contract test suite locally with Python:
-
+### 1. Kiểm thử Smart Contract
+Run unittestsuite:
 ```bash
 python scripts/verify_contract.py
 ```
 
-Or run unittest directly:
-```bash
-python -m unittest discover -s tests -p "test_*.py"
-```
-
-Output:
-```
-======================================================================
- BioIntelEscrow - Contract Verification & Test Suite Runner
-======================================================================
-[OK] Contract file detected: contracts/BioIntelEscrow.py
-[OK] Test suite detected: tests/test_bio_intel_escrow.py
-[OK] Contract Python syntax validation: PASSED
-
---- Running Unit Test Suite ---
-test_01_under_staking_reverts ... ok
-test_02_valid_telemetry_approved_and_cooling_off ... ok
-test_03_dispute_flow_and_arbitration ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 0.002s
-
-OK
-======================================================================
- SUCCESS: All BioIntelEscrow smart contract tests passed!
- GenLayer Score 5 Standard: VERIFIED
-======================================================================
-```
-
----
-
-### 2. Frontend Development Server
-
-Navigate into the `frontend` directory and start Vite:
-
+### 2. Chạy Frontend cục bộ
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Mở [http://localhost:3000](http://localhost:3000).
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-### 3. Deploying to GenLayer Studionet
-
-To deploy `BioIntelEscrow.py` using `genlayer CLI`:
-
+### 3. Deploy Smart Contract lên GenLayer Studionet
 ```bash
-# Install GenLayer CLI if not installed
-npm install -g genlayer
-
-# Deploy to Studionet
 genlayer deploy contracts/BioIntelEscrow.py --chain studionet
 ```
-
-Update `DEFAULT_CONTRACT_ADDRESS` in `frontend/src/utils/genlayer.ts` with your deployed contract address.
-
----
-
-## 🎨 Visual HUD Theme (DeSci Cyber-Laboratory HUD)
-
-- **Background**: Deep Bio-Dark (`#050B14`) with cellular membrane gradients.
-- **Primary / Glow**: Bioluminescent Emerald (`#10B981`) and Cyan Laser (`#06B6D4`).
-- **Alert & Accents**: Radioactive Amber (`#F59E0B`) and Biohazard Crimson (`#EF4444`).
-- **HUD Features**:
-  - Dual-Pane Spectrogram Diff Viewer (Sponsor Baseline vs Lab Telemetry Parser).
-  - Multi-Dimensional Consensus Reaction Radar HUD ($p$-value, statistical drift, cross-contamination).
-  - 24h Space-Station Digital LED Countdown Timer.
-  - Interactive multi-node AI VM consensus step visualizer.
 
 ---
 
 ## 📜 License
 
-MIT License. Designed for GenLayer DeSci Hackathons & Decentralized Open-Science Protocols.
+MIT License. Designed for GenLayer DeSci Hackathons.
