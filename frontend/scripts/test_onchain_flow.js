@@ -1,6 +1,6 @@
 import { createClient, chains, createAccount, generatePrivateKey } from 'genlayer-js';
 
-const CONTRACT_ADDRESS = "0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85";
+const CONTRACT_ADDRESS = "0x8a8aE4451876C4991C00B0125FEA3f5A138B1af4";
 const SPONSOR_PRIVATE_KEY = process.env.PRIVATE_KEY;
 
 async function main() {
