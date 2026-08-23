@@ -1,6 +1,6 @@
 import { AssayTask } from '../types/escrow';
 
-export const DEFAULT_CONTRACT_ADDRESS = "0x89A3B5416B90b5C6F5dE4F63e0A320577789d7F4";
+export const DEFAULT_CONTRACT_ADDRESS = (import.meta as any).env?.VITE_CONTRACT_ADDRESS || "0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85";
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
