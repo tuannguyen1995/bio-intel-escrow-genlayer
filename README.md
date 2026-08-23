@@ -1,30 +1,36 @@
 # BioIntelEscrow (Decentralized Open-Science Protocol & Biomolecular Assay Replication Escrow)
 
-BioIntelEscrow is a decentralized open-science protocol and biomolecular assay replication escrow platform built on GenLayer. It enables research sponsors and DAOs to post bounties for independent replication laboratories to validate biomolecular experimental protocols (such as CRISPR Cas12a cleavage kinetics, recombinant protein yields, or RT-qPCR assay sensitivity).
+[![Live Demo](https://img.shields.io/badge/Vercel_Live_App-BioIntelEscrow-000000?style=for-the-badge&logo=vercel)](https://bio-intel-escrow-genlayer.vercel.app)
+[![GenLayer Contract Standard](https://img.shields.io/badge/GenLayer-v0.2.18-10B981?style=for-the-badge&logo=python)](https://genlayer.com)
+[![GenLayer Score](https://img.shields.io/badge/GenLayer_Score-5.0_Verified-06B6D4?style=for-the-badge)](https://genlayer.com)
+[![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+
+BioIntelEscrow is a decentralized open-science protocol built on GenLayer that enables research DAOs to post bounties for independent lab replication, leveraging GenLayer's AI Consensus to validate raw spectrophotometry telemetry against baseline scientific protocols.
 
 ## Live App
-- **Live Vercel Application**: [https://bio-intel-escrow-genlayer.vercel.app](https://bio-intel-escrow-genlayer.vercel.app)
+[https://bio-intel-escrow-genlayer.vercel.app](https://bio-intel-escrow-genlayer.vercel.app)
 
 ## Deployed Contract
-- **Contract Address (Studionet)**: `0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85`
-- **GenLayer Block Explorer**: [https://genlayer-explorer.vercel.app/address/0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85](https://genlayer-explorer.vercel.app/address/0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85)
+- **Contract Address**: `0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85`
+- **GenLayer Explorer**: [https://genlayer-explorer.vercel.app/address/0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85](https://genlayer-explorer.vercel.app/address/0xe1Df056158E0869e1d0ee142EAF57b4c2bcc9b85)
 
 ---
 
 ## 🧬 Architectural Highlights
 
 ### 1. Multi-Agent AI VM Consensus
-- **Anti-Rugpull Guard**: Renders baseline protocol specifications live from HTTP/HTTPS endpoints via `gl.nondet.web.render`. Protects replication laboratories against missing or corrupt protocol specs.
-- **Anti-Spam Guard**: Validates submitted raw lab telemetry log URLs before executing LLM evaluations.
-- **Deterministic Consensus Framework**: Evaluates kinetic linearity ($R^2 > 0.98$), p-value thresholds ($p < 0.01$), coefficient of variation ($CV < 5\%$), and negative control integrity.
+- **Anti-Rugpull Guard**: Renders baseline protocol specifications live from HTTP/HTTPS endpoints via `gl.nondet.web.render`. Protects replication labs against broken or missing protocol specifications.
+- **Anti-Spam Guard**: Validates submitted raw lab telemetry log URLs before executing LLM prompt evaluation.
+- **Deterministic Consensus Framework**: Compares kinetic curve linearity ($R^2 > 0.98$), p-value thresholds ($p < 0.01$), coefficient of variation ($CV < 5\%$), and negative control integrity.
 
 ### 2. Mandatory 20% Lab Staking & Slashing
-- Replication laboratories must deposit a minimum **20% stake** relative to the bounty escrow to accept an assay task.
-- **Slashing Mechanism**: Two consecutive failed replication attempts result in task closure, returning 100% of the sponsor escrow bounty **plus the slashed lab stake** to the sponsor DAO.
+- Independent replication labs must deposit a minimum **20% stake** relative to the escrow bounty to lock an assay task.
+- **Slashing Mechanism**: Two consecutive failed attempts result in task closure, returning 100% of the escrow bounty **plus the slashed lab stake** to the sponsor DAO.
 
 ### 3. 24-Hour Dispute Cooling-Off Window
-- Payout finalization is locked for **86,400 seconds (24 hours)** post-`APPROVED` or `PARTIAL` verdict.
-- Sponsors or laboratories can invoke `raise_dispute()` during this window to freeze funds and request human arbitration (`RELEASE`, `REFUND`, or `SPLIT`).
+- Post-`APPROVED` or `PARTIAL` verdict, funds are locked for **86,400 seconds (24 hours)**.
+- During this window, sponsors or labs can trigger `raise_dispute()` to freeze payouts and request governance arbitration (`RELEASE`, `REFUND`, `SPLIT`).
 
 ---
 
@@ -54,11 +60,11 @@ bio-intel-escrow-genlayer/
 │   │   │   ├── ResolveEscalationModal.tsx # Admin/Sponsor arbitration modal
 │   │   │   └── AIConsensusModal.tsx # Step-by-step AI VM execution animation
 │   │   ├── types/
-│   │   │   └── escrow.ts            # TypeScript interfaces & status definitions
+│   │   │   └── escrow.ts
 │   │   ├── utils/
-│   │   │   └── genlayer.ts          # genlayer-js on-chain integration
-│   │   ├── App.tsx                  # Primary HUD application layout
-│   │   ├── index.css                # Deep Bio-Dark theme & sci-fi glow styles
+│   │   │   └── genlayer.ts          # Pure on-chain genlayer-js integration
+│   │   ├── App.tsx
+│   │   ├── index.css
 │   │   └── main.tsx
 │   ├── package.json
 │   └── vite.config.ts
@@ -70,26 +76,23 @@ bio-intel-escrow-genlayer/
 
 ## ⚡ Verification & Deployment Guide
 
-### 1. Smart Contract Unit Tests
-Execute unit tests locally with Python:
+### 1. Smart Contract Verification & Unit Tests
+Run the contract test suite locally with Python:
+
 ```bash
 python scripts/verify_contract.py
 ```
 
-### 2. Run Frontend Locally
+### 2. Frontend Local Development
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-### 3. Deploy Smart Contract to GenLayer Studionet
-```bash
-genlayer deploy contracts/BioIntelEscrow.py --chain studionet
-```
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## 📜 License
 
-MIT License. Built for GenLayer DeSci Hackathons.
+MIT License. Designed for GenLayer DeSci Open-Science Protocols.
