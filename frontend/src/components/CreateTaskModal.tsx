@@ -27,7 +27,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [protocolSpecHash, setProtocolSpecHash] = useState('');
   const [toleranceCriteria, setToleranceCriteria] = useState('p-value < 0.01, R^2 > 0.98, CV < 5%');
   const [blacklistAnomalies, setBlacklistAnomalies] = useState('Negative control cleaved, sensor saturation, reagent degradation');
-  const [escrowAmount, setEscrowAmount] = useState('20000');
+  const [escrowAmount, setEscrowAmount] = useState('100');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

@@ -3,37 +3,34 @@ import { AssayTask } from '../types/escrow';
 export const DEFAULT_CONTRACT_ADDRESS = (import.meta as any).env.VITE_CONTRACT_ADDRESS || "0x687E99e2F0C9851E4c2822730D47c897Da62978e";
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
-  if (typeof window === 'undefined' || !(window as any).ethereum) {
-    throw new Error("No Web3 wallet detected. Please install MetaMask to interact with GenLayer Studionet.");
+  try {
+    const { createClient } = await import('genlayer-js');
+    const client = createClient({
+      endpoint: 'https://studio.genlayer.com/api',
+    });
+
+    const rawRes = await client.readContract({
+      address: contractAddress as `0x${string}`,
+      functionName: 'get_all_tasks',
+      args: [],
+    });
+
+    if (!rawRes) return [];
+    const parsed = JSON.parse(String(rawRes));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error("Error fetching tasks:", err);
+    return [];
   }
-
-  const { createClient, chains } = await import('genlayer-js');
-  const client = createClient({
-    chain: chains.studionet,
-    provider: (window as any).ethereum,
-  });
-
-  const rawRes = await client.readContract({
-    address: contractAddress as `0x${string}`,
-    functionName: 'get_all_tasks',
-    args: [],
-  });
-
-  if (!rawRes) return [];
-  const parsed = JSON.parse(String(rawRes));
-  return Array.isArray(parsed) ? parsed : [];
 }
 
 export async function fetchWithdrawableBalance(account: string, contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<string> {
-  if (typeof window === 'undefined' || !(window as any).ethereum || !account) {
-    return "0";
-  }
+  if (!account) return "0";
 
   try {
-    const { createClient, chains } = await import('genlayer-js');
+    const { createClient } = await import('genlayer-js');
     const client = createClient({
-      chain: chains.studionet,
-      provider: (window as any).ethereum,
+      endpoint: 'https://studio.genlayer.com/api',
     });
 
     const rawRes = await client.readContract({
