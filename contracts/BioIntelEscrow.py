@@ -3,6 +3,7 @@
 from genlayer import *
 from dataclasses import dataclass
 import json
+import hashlib
 
 @allow_storage
 @dataclass
@@ -253,6 +254,17 @@ class Contract(gl.Contract):
                     "reason": f"Protocol fetch failed: {str(e)}"
                 }
 
+            # Cryptographic Evidence Integrity Check: Protocol Specification
+            if proto_hash and not proto_hash.startswith("ipfs://"):
+                clean_proto = proto_hash.lower().replace("sha256:", "").strip()
+                computed_proto = hashlib.sha256(p_text.encode("utf-8")).hexdigest().lower()
+                if clean_proto and computed_proto != clean_proto:
+                    return {
+                        "verdict": "ESCALATE", "confidence": 100, 
+                        "statistician_vote": "ESCALATE", "biochemist_vote": "ESCALATE", "contamination_vote": "ESCALATE",
+                        "reason": f"Protocol spec hash mismatch! Expected {clean_proto}, got {computed_proto}. Evidence integrity violation detected."
+                    }
+
             l_text = ""
             if not is_zk_mode:
                 try:
@@ -270,6 +282,17 @@ class Contract(gl.Contract):
                         "statistician_vote": "REFUND", "biochemist_vote": "REFUND", "contamination_vote": "REFUND",
                         "reason": f"Telemetry log fetch failed: {str(e)}"
                     }
+
+                # Cryptographic Evidence Integrity Check: Telemetry Data
+                if log_hash and not log_hash.startswith("ipfs://"):
+                    clean_log = log_hash.lower().replace("sha256:", "").strip()
+                    computed_log = hashlib.sha256(l_text.encode("utf-8")).hexdigest().lower()
+                    if clean_log and computed_log != clean_log:
+                        return {
+                            "verdict": "REFUND", "confidence": 100, 
+                            "statistician_vote": "REFUND", "biochemist_vote": "REFUND", "contamination_vote": "REFUND",
+                            "reason": f"Assay log hash mismatch! Expected {clean_log}, got {computed_log}. Telemetry tampering detected."
+                        }
             else:
                 l_text = f"ZK Shielded Mode Active. Telemetry Hash: {zk_proof_hash}. Zero-Knowledge proof compliance validated off-chain."
 
@@ -281,7 +304,7 @@ ASSAY TITLE:
 {name_str}
 
 BASELINE PROTOCOL SPECIFICATION:
-{p_text[:2500]}
+{p_text}
 
 EVIDENCE INTEGRITY & IMMUTABLE HASH COMMITMENTS:
 - Baseline Protocol Hash Committed by Sponsor: {proto_hash if proto_hash else 'NOT_COMMITTED'}
@@ -299,7 +322,7 @@ BLACKLISTED ANOMALIES:
 {ano_str}
 
 TELEMETRY DATA / LOGS:
-{l_text[:2500]}
+{l_text}
 
 Please conduct an independent Peer-Review with 3 distinct scientific agent personas:
 1. STATISTICIAN AGENT: Evaluates R^2 linearity (>0.98), p-value significance (<0.01), CV (<5%), and kinetic curve fidelity.
@@ -481,10 +504,10 @@ ASSAY TITLE:
 {name_str}
 
 BASELINE SPECIFICATION:
-{p_text[:2000]}
+{p_text}
 
 TELEMETRY DATA / LOGS:
-{l_text[:2000]}
+{l_text}
 
 LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
 - Provenance Type: {prov_type}

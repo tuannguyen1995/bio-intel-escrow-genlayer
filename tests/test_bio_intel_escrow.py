@@ -1,6 +1,7 @@
 import sys
 import os
 import unittest
+import hashlib
 from unittest.mock import MagicMock
 
 class MockAddress(str): pass
@@ -103,7 +104,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             "CRISPR Cas12a Cleavage Kinetic Replication Assay",
             "p-value < 0.01, R^2 > 0.98, CV < 5%",
             "Negative control cleaved, baseline drift > 10%",
-            protocol_spec_hash="sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            protocol_spec_hash=""
         )
 
     def test_01_under_staking_reverts(self):
@@ -132,7 +133,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract.submit_assay_telemetry(
             self.tid, 
             "https://lab-logs.org/telemetry_01.csv",
-            assay_log_hash="sha256:dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f",
+            assay_log_hash="",
             lab_provenance_sig="0x89abcdef12345678",
             provenance_type="LIMS_RAW_EXPORT",
             instrument_id="Biotek-Synergy-H1-48821"
@@ -224,39 +225,98 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.assertEqual(self.gl.transfers[0]["to"], self.sponsor)
         self.assertEqual(self.gl.transfers[0]["value"], 2600)
 
-    def test_05_evidence_integrity_and_provenance_storage(self):
-        """Ensure hash commitment and laboratory instrument provenance are securely stored in contract state."""
-        task = self.contract.tasks[self.tid]
-        self.assertEqual(task.protocol_spec_hash, "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    def test_05_evidence_integrity_deterministic_sha256_verification(self):
+        """Ensure hash commitment verification passes when hashes match and stores provenance."""
+        tid2 = "task_hash_verified_02"
+        proto_content = "CRISPR-Cas12a-Protocol-v2-Official"
+        computed_proto_hash = hashlib.sha256(proto_content.encode("utf-8")).hexdigest()
+
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        self.contract.create_assay_task(
+            tid2,
+            "https://protocols.io/spec/crispr_v2.json",
+            "Cas12a Cleavage V2",
+            "R^2 > 0.98",
+            "Sensor saturation",
+            protocol_spec_hash=f"sha256:{computed_proto_hash}"
+        )
 
         self.gl.message.sender_address = self.lab
-        self.gl.message.value = MockBigInt(400)
-        self.contract.accept_assay_task(self.tid)
+        self.gl.message.value = MockBigInt(200)
+        self.contract.accept_assay_task(tid2)
 
-        self.gl.nondet.web.render = lambda url, mode="text": "Valid assay telemetry log"
+        telemetry_content = "Raw-Kinetic-Readings-OD600-0.985"
+        computed_log_hash = hashlib.sha256(telemetry_content.encode("utf-8")).hexdigest()
+
+        # Mock render returns exact content
+        def mock_render(url, mode="text"):
+            if "crispr_v2" in url:
+                return proto_content
+            return telemetry_content
+        self.gl.nondet.web.render = mock_render
+
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
             "statistician_vote": "APPROVED",
             "biochemist_vote": "APPROVED",
             "contamination_vote": "APPROVED",
             "verdict": "APPROVED",
             "confidence": 98,
-            "reason": "Telemetry verified against committed hash with authenticated instrument telemetry."
+            "reason": "Hash verified and kinetic curves aligned."
         }
+
         self.contract.submit_assay_telemetry(
-            self.tid,
-            "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
-            is_zk_mode=False,
-            assay_log_hash="sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-            lab_provenance_sig="0x9c3f4e2...lab_ecdsa_sig",
+            tid2,
+            "https://lab.org/telemetry_v2.csv",
+            assay_log_hash=f"sha256:{computed_log_hash}",
+            lab_provenance_sig="0xSignature123",
             provenance_type="SPECTROMETER_HARDWARE_ATTESTATION",
             instrument_id="Tecan-Infinite-M-Nano-SN9912"
         )
 
-        updated_task = self.contract.tasks[self.tid]
-        self.assertEqual(updated_task.assay_log_hash, "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945")
-        self.assertEqual(updated_task.provenance_type, "SPECTROMETER_HARDWARE_ATTESTATION")
-        self.assertEqual(updated_task.instrument_id, "Tecan-Infinite-M-Nano-SN9912")
-        self.assertEqual(updated_task.lab_provenance_sig, "0x9c3f4e2...lab_ecdsa_sig")
+        task = self.contract.tasks[tid2]
+        self.assertEqual(task.status, "AWAITING_PAYOUT")
+        self.assertEqual(task.verdict, "APPROVED")
+        self.assertEqual(task.instrument_id, "Tecan-Infinite-M-Nano-SN9912")
+
+    def test_06_tampered_evidence_rejected_by_python_sha256(self):
+        """Code-level SHA-256 verification catches tampered telemetry without relying on LLM."""
+        tid3 = "task_tampered_03"
+        proto_content = "CRISPR-Cas12a-Protocol-v3"
+        correct_proto_hash = hashlib.sha256(proto_content.encode("utf-8")).hexdigest()
+
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        self.contract.create_assay_task(
+            tid3,
+            "https://protocols.io/spec/crispr_v3.json",
+            "Cas12a Cleavage V3",
+            "R^2 > 0.98",
+            "Sensor saturation",
+            protocol_spec_hash=f"sha256:{correct_proto_hash}"
+        )
+
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(200)
+        self.contract.accept_assay_task(tid3)
+
+        # Lab commits a hash, but web content returns TAMPERED payload!
+        committed_log_hash = "1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"
+        tampered_telemetry_content = "Tampered-Faked-Readings"
+
+        self.gl.nondet.web.render = lambda url, mode="text": proto_content if "crispr_v3" in url else tampered_telemetry_content
+
+        # Submit telemetry with hash mismatch
+        self.contract.submit_assay_telemetry(
+            tid3,
+            "https://lab.org/tampered.csv",
+            assay_log_hash=f"sha256:{committed_log_hash}"
+        )
+
+        task = self.contract.tasks[tid3]
+        # Should be caught by Python SHA-256 and flagged REFUND
+        self.assertEqual(task.verdict, "REFUND")
+        self.assertIn("Assay log hash mismatch", task.reason)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
