@@ -30,11 +30,7 @@ import { Dna, RefreshCw, Layers, Wallet, AlertCircle, PlusCircle } from 'lucide-
 export function App() {
   const [contractAddress, setContractAddress] = useState<string>(() => {
     const saved = localStorage.getItem('biointel_contract_address');
-    const DEPRECATED_CONTRACTS = [
-      '0x8a8ae4451876c4991c00b0125fea3f5a138b1af4',
-      '0xe1df056158e0869e1d0ee142eaf57b4c2bcc9b85',
-    ];
-    if (!saved || DEPRECATED_CONTRACTS.includes(saved.toLowerCase())) {
+    if (!saved || saved.toLowerCase() !== DEFAULT_CONTRACT_ADDRESS.toLowerCase()) {
       localStorage.setItem('biointel_contract_address', DEFAULT_CONTRACT_ADDRESS);
       return DEFAULT_CONTRACT_ADDRESS;
     }

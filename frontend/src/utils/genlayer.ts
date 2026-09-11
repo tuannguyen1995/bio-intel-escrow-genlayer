@@ -1,6 +1,7 @@
 import { AssayTask } from '../types/escrow';
 
-export const DEFAULT_CONTRACT_ADDRESS = (import.meta as any).env.VITE_CONTRACT_ADDRESS || "0x687E99e2F0C9851E4c2822730D47c897Da62978e";
+export const CANONICAL_CONTRACT_ADDRESS = "0x687E99e2F0C9851E4c2822730D47c897Da62978e";
+export const DEFAULT_CONTRACT_ADDRESS = CANONICAL_CONTRACT_ADDRESS;
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
   try {
