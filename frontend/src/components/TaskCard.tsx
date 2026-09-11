@@ -1,6 +1,7 @@
 import React from 'react';
 import { Dna, ShieldCheck, AlertCircle, FileText, ExternalLink, ArrowRight, Lock, CheckCircle2, AlertTriangle, Scale, RefreshCw } from 'lucide-react';
 import { AssayTask, UserRole } from '../types/escrow';
+import { formatGEN } from '../utils/formatters';
 
 interface TaskCardProps {
   task: AssayTask;
@@ -76,9 +77,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {/* Escrow Badge */}
         <div className="text-right font-mono shrink-0">
           <span className="text-[10px] text-slate-400 block uppercase">Escrow Bounty</span>
-          <span className="text-lg font-bold text-bio-emerald">{parseInt(task.escrow_amount).toLocaleString()} GEN</span>
+          <span className="text-lg font-bold text-bio-emerald">{formatGEN(task.escrow_amount)} GEN</span>
           {BigInt(task.lab_stake || '0') > 0n && (
-            <span className="text-[10px] text-bio-cyan block">+ {parseInt(task.lab_stake).toLocaleString()} Stake</span>
+            <span className="text-[10px] text-bio-cyan block">+ {formatGEN(task.lab_stake)} Stake</span>
           )}
         </div>
       </div>
@@ -159,7 +160,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               onClick={() => onAcceptClick(task)}
               className="px-3.5 py-1.5 rounded-lg bg-bio-emerald text-bio-dark font-mono font-bold text-xs hover:opacity-90 transition shadow-glow-emerald flex items-center space-x-1"
             >
-              <span>Accept Task (Stake {parseInt(minStake).toLocaleString()} GEN)</span>
+              <span>Accept Task (Stake {formatGEN(minStake)} GEN)</span>
             </button>
           )}
 

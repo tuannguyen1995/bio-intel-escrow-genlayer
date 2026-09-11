@@ -1,6 +1,7 @@
 import React from 'react';
 import { Vault, FlaskConical, AlertTriangle, ShieldCheck, Cpu } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
+import { formatGEN } from '../utils/formatters';
 
 interface StatsOverviewProps {
   tasks: AssayTask[];
@@ -22,7 +23,7 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({ tasks }) => {
           <p className="text-xs font-mono text-slate-400 uppercase tracking-wider">Total Value Locked</p>
           <div className="flex items-baseline space-x-1 mt-1">
             <span className="text-2xl font-mono font-bold text-bio-emerald tracking-tight">
-              {totalEscrowed.toLocaleString()}
+              {formatGEN(totalEscrowed)}
             </span>
             <span className="text-xs font-mono text-bio-emerald font-semibold">GEN</span>
           </div>

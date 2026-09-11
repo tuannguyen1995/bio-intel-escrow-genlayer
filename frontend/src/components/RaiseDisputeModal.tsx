@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldAlert, AlertTriangle, AlertCircle, Coins } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
+import { formatGEN } from '../utils/formatters';
 
 interface RaiseDisputeModalProps {
   task: AssayTask | null;
@@ -23,7 +24,6 @@ export const RaiseDisputeModal: React.FC<RaiseDisputeModalProps> = ({
 
   const escrowAmount = BigInt(task.escrow_amount);
   const appealBond = escrowAmount / 10n; // 10% Appeal Bond
-  const bondInGen = Number(appealBond) / 1e18;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +91,7 @@ export const RaiseDisputeModal: React.FC<RaiseDisputeModalProps> = ({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-slate-200 font-bold">{bondInGen.toLocaleString()} GEN</p>
-              <p className="text-[8px] text-slate-400">({appealBond.toString()} Wei)</p>
+              <p className="text-slate-200 font-bold">{formatGEN(appealBond)} GEN</p>
             </div>
           </div>
 

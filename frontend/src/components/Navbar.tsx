@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Dna, Wallet, LogOut, Activity, User, Settings, Check, Copy, ArrowDownCircle } from 'lucide-react';
 import { UserRole } from '../types/escrow';
+import { formatGEN } from '../utils/formatters';
 
 interface NavbarProps {
   currentRole: UserRole;
@@ -96,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Claim your settled escrow balance"
             >
               <ArrowDownCircle className="w-4 h-4" />
-              <span>Claim {parseInt(withdrawableBalance).toLocaleString()} GEN</span>
+              <span>Claim {formatGEN(withdrawableBalance)} GEN</span>
             </button>
           )}
 
