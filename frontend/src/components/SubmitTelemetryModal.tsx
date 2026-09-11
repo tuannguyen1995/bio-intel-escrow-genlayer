@@ -27,18 +27,26 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
   if (!isOpen || !task) return null;
 
   const [isZkMode, setIsZkMode] = useState(false);
-  const [assayLogUrl, setAssayLogUrl] = useState(task.assay_log_url || 'https://lab-logs.org/telemetry_cas12a_run99.csv');
+  const [assayLogUrl, setAssayLogUrl] = useState(task.assay_log_url || '');
   const [zkProofHash, setZkProofHash] = useState('');
-  const [assayLogHash, setAssayLogHash] = useState('sha256:dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f');
+  const [assayLogHash, setAssayLogHash] = useState('');
   const [provenanceType, setProvenanceType] = useState('LIMS_RAW_EXPORT');
-  const [instrumentId, setInstrumentId] = useState('Biotek-Synergy-H1-SN48821');
-  const [labProvenanceSig, setLabProvenanceSig] = useState('0x89abcdef12345678...lab_ed25519_sig');
+  const [instrumentId, setInstrumentId] = useState('');
+  const [labProvenanceSig, setLabProvenanceSig] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleGenerateHash = () => {
-    const rand = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    setAssayLogHash(`sha256:${rand}4a3b2c1d9876543210fedcba`);
+  const handleComputeSha256 = async () => {
+    if (!assayLogUrl.trim()) return;
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(assayLogUrl.trim());
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      setAssayLogHash(`sha256:${hashHex}`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,10 +169,12 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
               </span>
               <button
                 type="button"
-                onClick={handleGenerateHash}
-                className="text-[10px] px-2 py-0.5 rounded bg-bio-cyan/20 border border-bio-cyan/40 text-bio-cyan hover:bg-bio-cyan hover:text-bio-dark transition"
+                onClick={handleComputeSha256}
+                className="text-[10px] px-2 py-0.5 rounded bg-bio-cyan/20 border border-bio-cyan/40 text-bio-cyan hover:bg-bio-cyan hover:text-bio-dark transition flex items-center space-x-1"
+                title="Compute SHA-256 hash of telemetry log URL"
               >
-                Auto-Hash
+                <Hash className="w-3 h-3" />
+                <span>Compute SHA-256</span>
               </button>
             </div>
             <input

@@ -23,7 +23,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [taskId, setTaskId] = useState(`assay_${Date.now().toString().slice(-6)}`);
   const [assayName, setAssayName] = useState('Cas12a Cleavage Kinetic Replication Assay');
   const [protocolUrl, setProtocolUrl] = useState('https://protocols.io/spec/crispr_cleavage.json');
-  const [protocolSpecHash, setProtocolSpecHash] = useState('sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+  const [protocolSpecHash, setProtocolSpecHash] = useState('');
   const [toleranceCriteria, setToleranceCriteria] = useState('p-value < 0.01, R^2 > 0.98, CV < 5%');
   const [blacklistAnomalies, setBlacklistAnomalies] = useState('Negative control cleaved, sensor saturation, reagent degradation');
   const [escrowAmount, setEscrowAmount] = useState('20000');
@@ -32,10 +32,17 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleGenerateHash = () => {
-    // Generates a mock/sample SHA-256 hash based on the current URL
-    const rand = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    setProtocolSpecHash(`sha256:${rand}89ab45cd67ef1234567890abcdef`);
+  const handleComputeSha256 = async () => {
+    if (!protocolUrl.trim()) return;
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(protocolUrl.trim());
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      setProtocolSpecHash(`sha256:${hashHex}`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,11 +164,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               </div>
               <button
                 type="button"
-                onClick={handleGenerateHash}
+                onClick={handleComputeSha256}
                 className="text-[10px] px-2 py-0.5 rounded bg-bio-cyan/20 border border-bio-cyan/40 text-bio-cyan hover:bg-bio-cyan hover:text-bio-dark transition flex items-center space-x-1"
+                title="Compute SHA-256 hash of protocol URL"
               >
                 <Hash className="w-3 h-3" />
-                <span>Auto-Hash</span>
+                <span>Compute SHA-256</span>
               </button>
             </div>
             <p className="text-[10px] text-slate-400">

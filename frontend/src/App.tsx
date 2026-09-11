@@ -10,7 +10,6 @@ import { AcceptTaskModal } from './components/AcceptTaskModal';
 import { SubmitTelemetryModal } from './components/SubmitTelemetryModal';
 import { RaiseDisputeModal } from './components/RaiseDisputeModal';
 import { ResolveEscalationModal } from './components/ResolveEscalationModal';
-import { AIConsensusModal } from './components/AIConsensusModal';
 import { AssayTask, UserRole } from './types/escrow';
 import {
   DEFAULT_CONTRACT_ADDRESS,
@@ -45,7 +44,6 @@ export function App() {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
-  const [isConsensusModalOpen, setIsConsensusModalOpen] = useState(false);
   const [activeTaskForModal, setActiveTaskForModal] = useState<AssayTask | null>(null);
 
   const connectWallet = async () => {
@@ -354,13 +352,7 @@ export function App() {
             <SpectrogramDiffViewer task={selectedTask} />
 
             {/* Consensus Reaction HUD & AI Metrics */}
-            <ConsensusReactionHUD
-              task={selectedTask}
-              onRunConsensusClick={() => {
-                setActiveTaskForModal(selectedTask);
-                setIsConsensusModalOpen(true);
-              }}
-            />
+            <ConsensusReactionHUD task={selectedTask} />
 
           </div>
         ) : (
@@ -518,12 +510,6 @@ export function App() {
         isOpen={isResolveModalOpen}
         onClose={() => setIsResolveModalOpen(false)}
         onSubmit={handleResolveEscalation}
-      />
-
-      <AIConsensusModal
-        isOpen={isConsensusModalOpen}
-        onClose={() => setIsConsensusModalOpen(false)}
-        task={activeTaskForModal}
       />
 
     </div>

@@ -199,6 +199,22 @@ export const SpectrogramDiffViewer: React.FC<SpectrogramDiffViewerProps> = ({ ta
                 </div>
               </div>
             </div>
+          ) : !task.assay_log_url ? (
+            /* Telemetry Pending View */
+            <div className="h-full flex flex-col justify-center items-center py-16 px-4 border border-dashed border-bio-border bg-bio-card/30 rounded-lg text-center font-mono">
+              <div className="p-3.5 rounded-full bg-bio-dark border border-bio-border text-slate-500 mb-3 shadow-inner">
+                <Activity className="w-6 h-6 text-slate-400" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1.5">
+                Awaiting On-Chain Telemetry Submission
+              </h4>
+              <p className="text-[11px] text-slate-400 max-w-sm leading-relaxed mb-3">
+                No spectrophotometry log has been submitted for this assay yet. Once the assigned replication lab executes the assay and submits on-chain telemetry, kinetic curves and baseline diffs will be plotted here.
+              </p>
+              <div className="text-[10px] text-bio-cyan/80 bg-bio-cyan/10 border border-bio-cyan/20 px-2.5 py-1 rounded">
+                Status: {task.status.replace('_', ' ')} • Lab: {task.lab ? `${task.lab.slice(0, 10)}...` : 'None Assigned'}
+              </div>
+            </div>
           ) : (
             /* Standard Open View UI */
             <>
@@ -274,11 +290,17 @@ export const SpectrogramDiffViewer: React.FC<SpectrogramDiffViewerProps> = ({ ta
                 </ResponsiveContainer>
               </div>
 
-              <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-slate-400 bg-bio-card p-2 rounded border border-bio-border/60">
-                <span className="flex items-center gap-1.5 text-bio-emerald">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Statistical Deviation: ±0.014 (Within ±0.060 Tolerance)
-                </span>
-                <span>Sampling Interval: 5 min</span>
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between font-mono text-[11px] text-slate-400 bg-bio-card p-2.5 rounded border border-bio-border/60 gap-2">
+                <div className="flex items-center gap-1.5 text-bio-emerald">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>On-Chain Telemetry:</span>
+                  <a href={task.assay_log_url} target="_blank" rel="noreferrer" className="text-bio-cyan underline truncate max-w-[220px]">
+                    {task.assay_log_url}
+                  </a>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {task.assay_log_hash ? `Hash: ${task.assay_log_hash.slice(0, 16)}...` : 'Verified Source'}
+                </div>
               </div>
             </>
           )}

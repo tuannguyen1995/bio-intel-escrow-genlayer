@@ -1,15 +1,13 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Sparkles, Binary } from 'lucide-react';
+import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Binary } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
 
 interface ConsensusReactionHUDProps {
   task: AssayTask;
-  onRunConsensusClick?: () => void;
 }
 
 export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
   task,
-  onRunConsensusClick
 }) => {
   const confidence = parseInt(task.confidence || '0', 10);
   const verdict = task.verdict || 'NONE';
@@ -94,15 +92,10 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
           </div>
         </div>
 
-        {onRunConsensusClick && (
-          <button
-            onClick={onRunConsensusClick}
-            className="px-3.5 py-1.5 rounded-lg bg-bio-emerald/20 border border-bio-emerald/50 text-bio-emerald font-mono font-bold text-xs hover:bg-bio-emerald hover:text-bio-dark transition shadow-glow-emerald flex items-center space-x-1.5 self-start sm:self-auto"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Simulate AI Consensus Flow</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-2 text-[11px] font-mono text-bio-emerald bg-bio-emerald/10 border border-bio-emerald/30 px-3 py-1.5 rounded-lg">
+          <span className="w-2 h-2 rounded-full bg-bio-emerald animate-pulse"></span>
+          <span>100% On-Chain GenVM Storage</span>
+        </div>
       </div>
 
       {/* Multi-Agent Voting Breakdown */}
