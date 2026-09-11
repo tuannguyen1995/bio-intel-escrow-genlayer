@@ -23,6 +23,7 @@ import {
   resolveDisputeViaRefereeOnChain,
   fetchWithdrawableBalance,
   withdrawCreditsOnChain,
+  ensureGenLayerNetwork,
 } from './utils/genlayer';
 import { Dna, RefreshCw, Layers, Wallet, AlertCircle, PlusCircle } from 'lucide-react';
 
@@ -50,6 +51,7 @@ export function App() {
     setErrorMessage('');
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       try {
+        await ensureGenLayerNetwork();
         const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
         if (accounts && accounts.length > 0) {
           setWalletAddress(accounts[0].toLowerCase());
@@ -90,10 +92,16 @@ export function App() {
         }
       };
 
+      const handleChainChanged = () => {
+        window.location.reload();
+      };
+
       (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      (window as any).ethereum.on('chainChanged', handleChainChanged);
       return () => {
         if ((window as any).ethereum?.removeListener) {
           (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          (window as any).ethereum.removeListener('chainChanged', handleChainChanged);
         }
       };
     }

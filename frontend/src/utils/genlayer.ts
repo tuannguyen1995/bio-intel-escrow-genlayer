@@ -48,6 +48,42 @@ export async function fetchWithdrawableBalance(account: string, contractAddress 
   }
 }
 
+export const STUDIONET_CHAIN_ID_HEX = '0xf22f'; // 61999
+
+export async function ensureGenLayerNetwork(): Promise<void> {
+  if (typeof window === 'undefined' || !(window as any).ethereum) return;
+  try {
+    const currentChainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+    if (currentChainId && currentChainId.toLowerCase() !== STUDIONET_CHAIN_ID_HEX.toLowerCase()) {
+      try {
+        await (window as any).ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: STUDIONET_CHAIN_ID_HEX }],
+        });
+      } catch (switchError: any) {
+        if (switchError.code === 4902 || switchError.message?.includes('Unrecognized chain')) {
+          await (window as any).ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: STUDIONET_CHAIN_ID_HEX,
+              chainName: 'GenLayer Studio Network',
+              rpcUrls: ['https://studio.genlayer.com/api'],
+              nativeCurrency: {
+                name: 'GEN Token',
+                symbol: 'GEN',
+                decimals: 18,
+              },
+              blockExplorerUrls: ['https://genlayer-explorer.vercel.app'],
+            }],
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("ensureGenLayerNetwork warning:", err);
+  }
+}
+
 export async function createAssayTaskOnChain(params: {
   taskId: string;
   protocolUrl: string;
@@ -62,6 +98,8 @@ export async function createAssayTaskOnChain(params: {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
+
+  await ensureGenLayerNetwork();
 
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
@@ -100,6 +138,8 @@ export async function acceptAssayTaskOnChain(params: {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
 
+  await ensureGenLayerNetwork();
+
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
     chain: chains.studionet,
@@ -135,6 +175,8 @@ export async function submitAssayTelemetryOnChain(params: {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
+
+  await ensureGenLayerNetwork();
 
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
@@ -176,6 +218,8 @@ export async function raiseDisputeOnChain(params: {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
 
+  await ensureGenLayerNetwork();
+
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
     chain: chains.studionet,
@@ -205,6 +249,8 @@ export async function finalizePayoutOnChain(params: {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
 
+  await ensureGenLayerNetwork();
+
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
     chain: chains.studionet,
@@ -232,6 +278,8 @@ export async function withdrawCreditsOnChain(params: {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
+
+  await ensureGenLayerNetwork();
 
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
@@ -262,6 +310,8 @@ export async function resolveDisputeViaRefereeOnChain(params: {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
 
+  await ensureGenLayerNetwork();
+
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
     chain: chains.studionet,
@@ -291,6 +341,8 @@ export async function resolveEscalationOnChain(params: {
   if (typeof window === 'undefined' || !(window as any).ethereum) {
     throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
   }
+
+  await ensureGenLayerNetwork();
 
   const { createClient, chains } = await import('genlayer-js');
   const client = createClient({
