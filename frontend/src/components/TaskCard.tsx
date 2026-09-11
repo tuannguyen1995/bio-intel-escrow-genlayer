@@ -93,6 +93,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <span>Anomalies Guard:</span>
           <span className="text-bio-amber text-[10px] truncate max-w-[240px]">{task.blacklist_anomalies}</span>
         </div>
+
+        {/* Evidence Integrity & Provenance Tag Bar */}
+        <div className="pt-2 border-t border-bio-border/40 flex flex-wrap gap-1.5 items-center">
+          {task.protocol_spec_hash ? (
+            <span className="px-2 py-0.5 rounded bg-bio-cyan/10 border border-bio-cyan/40 text-bio-cyan text-[10px] flex items-center gap-1 font-mono" title={`Spec Hash: ${task.protocol_spec_hash}`}>
+              <ShieldCheck className="w-3 h-3" />
+              <span>Spec Hash: {task.protocol_spec_hash.slice(0, 12)}...</span>
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-mono">
+              Uncommitted Hash
+            </span>
+          )}
+
+          {task.instrument_id && (
+            <span className="px-2 py-0.5 rounded bg-bio-emerald/10 border border-bio-emerald/40 text-bio-emerald text-[10px] flex items-center gap-1 font-mono" title={`Hardware Attestation: ${task.instrument_id}`}>
+              <CheckCircle2 className="w-3 h-3" />
+              <span>{task.provenance_type || 'LIMS'}: {task.instrument_id}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Addresses & Meta */}

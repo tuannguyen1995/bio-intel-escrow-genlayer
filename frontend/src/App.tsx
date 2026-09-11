@@ -22,6 +22,8 @@ import {
   finalizePayoutOnChain,
   resolveEscalationOnChain,
   resolveDisputeViaRefereeOnChain,
+  fetchWithdrawableBalance,
+  withdrawCreditsOnChain,
 } from './utils/genlayer';
 import { Dna, RefreshCw, Layers, Wallet, AlertCircle, PlusCircle } from 'lucide-react';
 
@@ -35,6 +37,7 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [withdrawableBalance, setWithdrawableBalance] = useState<string>('0');
 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -104,6 +107,10 @@ export function App() {
     try {
       const data = await fetchAllAssayTasks(contractAddress);
       setTasks(data);
+      if (walletAddress) {
+        const bal = await fetchWithdrawableBalance(walletAddress, contractAddress);
+        setWithdrawableBalance(bal);
+      }
       if (data.length > 0) {
         if (!selectedTask || !data.some(t => t.id === selectedTask.id)) {
           setSelectedTask(data[0]);
@@ -268,6 +275,22 @@ export function App() {
     }
   };
 
+  const handleWithdrawCredits = async () => {
+    if (!walletAddress) {
+      await connectWallet();
+    }
+    setErrorMessage('');
+    try {
+      await withdrawCreditsOnChain({
+        userAddress: walletAddress,
+        contractAddress,
+      });
+      await loadData();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Withdrawal failed");
+    }
+  };
+
   const filteredTasks = tasks.filter(t => {
     if (statusFilter === 'ALL') return true;
     return t.status === statusFilter;
@@ -287,6 +310,8 @@ export function App() {
         contractAddress={contractAddress}
         setContractAddress={setContractAddress}
         onCreateBountyClick={() => setIsCreateModalOpen(true)}
+        withdrawableBalance={withdrawableBalance}
+        onWithdrawCredits={handleWithdrawCredits}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

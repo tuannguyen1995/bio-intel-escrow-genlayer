@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Dna, PlusCircle, AlertCircle } from 'lucide-react';
+import { X, Dna, PlusCircle, AlertCircle, ShieldCheck, Hash } from 'lucide-react';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface CreateTaskModalProps {
     protocolUrl: string;
     toleranceCriteria: string;
     blacklistAnomalies: string;
+    protocolSpecHash: string;
     escrowAmount: bigint;
   }) => Promise<void>;
 }
@@ -22,6 +23,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [taskId, setTaskId] = useState(`assay_${Date.now().toString().slice(-6)}`);
   const [assayName, setAssayName] = useState('Cas12a Cleavage Kinetic Replication Assay');
   const [protocolUrl, setProtocolUrl] = useState('https://protocols.io/spec/crispr_cleavage.json');
+  const [protocolSpecHash, setProtocolSpecHash] = useState('sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
   const [toleranceCriteria, setToleranceCriteria] = useState('p-value < 0.01, R^2 > 0.98, CV < 5%');
   const [blacklistAnomalies, setBlacklistAnomalies] = useState('Negative control cleaved, sensor saturation, reagent degradation');
   const [escrowAmount, setEscrowAmount] = useState('20000');
@@ -29,6 +31,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
+
+  const handleGenerateHash = () => {
+    // Generates a mock/sample SHA-256 hash based on the current URL
+    const rand = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    setProtocolSpecHash(`sha256:${rand}89ab45cd67ef1234567890abcdef`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +47,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       return;
     }
 
-    if (!protocolUrl.startsWith('http')) {
-      setError('Protocol specification must be a valid HTTP/HTTPS URL');
+    if (!protocolUrl.startsWith('http') && !protocolUrl.startsWith('ipfs://')) {
+      setError('Protocol specification must be a valid HTTP/HTTPS or IPFS URL');
       return;
     }
 
@@ -56,6 +64,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         taskId: taskId.trim(),
         assayName: assayName.trim(),
         protocolUrl: protocolUrl.trim(),
+        protocolSpecHash: protocolSpecHash.trim(),
         toleranceCriteria: toleranceCriteria.trim(),
         blacklistAnomalies: blacklistAnomalies.trim(),
         escrowAmount: BigInt(amountNum),
@@ -70,7 +79,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-bio-card border border-bio-emerald/40 rounded-xl max-w-xl w-full p-6 shadow-glow-emerald hud-border font-mono relative">
+      <div className="bg-bio-card border border-bio-emerald/40 rounded-xl max-w-xl w-full p-6 shadow-glow-emerald hud-border font-mono relative max-h-[90vh] overflow-y-auto">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-bio-border pb-3 mb-4">
@@ -128,10 +137,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           <div>
             <label className="text-slate-400 uppercase text-[10px] block mb-1">
-              Baseline Protocol Spec HTTP/HTTPS URL
+              Baseline Protocol Spec URL (HTTP/HTTPS or IPFS)
             </label>
             <input
-              type="url"
+              type="text"
               value={protocolUrl}
               onChange={(e) => setProtocolUrl(e.target.value)}
               className="w-full bg-bio-dark border border-bio-border rounded px-3 py-2 text-bio-cyan focus:border-bio-cyan focus:outline-none"
@@ -139,9 +148,37 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             />
           </div>
 
+          {/* Evidence Integrity Commitment */}
+          <div className="p-3 bg-bio-dark/70 border border-bio-cyan/40 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-bio-cyan">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="font-bold uppercase text-[11px]">Evidence Integrity: Immutable Hash Commitment</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateHash}
+                className="text-[10px] px-2 py-0.5 rounded bg-bio-cyan/20 border border-bio-cyan/40 text-bio-cyan hover:bg-bio-cyan hover:text-bio-dark transition flex items-center space-x-1"
+              >
+                <Hash className="w-3 h-3" />
+                <span>Auto-Hash</span>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Commit an immutable content digest (SHA-256 or IPFS CID) so GenLayer validators verify against tamper-proof snapshot specifications.
+            </p>
+            <input
+              type="text"
+              value={protocolSpecHash}
+              onChange={(e) => setProtocolSpecHash(e.target.value)}
+              placeholder="e.g. sha256:... or ipfs://bafy..."
+              className="w-full bg-bio-dark border border-bio-border rounded px-3 py-1.5 text-slate-200 text-[11px] focus:border-bio-cyan focus:outline-none font-mono"
+            />
+          </div>
+
           <div>
             <label className="text-slate-400 uppercase text-[10px] block mb-1">
-              Statistical Tolerance Criteria ($\pm \sigma$, p-value, $R^2$)
+              Statistical Tolerance Criteria
             </label>
             <input
               type="text"

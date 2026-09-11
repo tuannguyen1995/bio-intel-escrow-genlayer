@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dna, Wallet, LogOut, Activity, User, Settings, Check, Copy } from 'lucide-react';
+import { Dna, Wallet, LogOut, Activity, User, Settings, Check, Copy, ArrowDownCircle } from 'lucide-react';
 import { UserRole } from '../types/escrow';
 
 interface NavbarProps {
@@ -12,6 +12,8 @@ interface NavbarProps {
   contractAddress: string;
   setContractAddress: (addr: string) => void;
   onCreateBountyClick: () => void;
+  withdrawableBalance?: string;
+  onWithdrawCredits?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -24,6 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   contractAddress,
   setContractAddress,
   onCreateBountyClick,
+  withdrawableBalance = "0",
+  onWithdrawCredits,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,6 +39,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const hasCredits = BigInt(withdrawableBalance || "0") > 0n;
 
   return (
     <header className="border-b border-bio-border bg-bio-card/90 backdrop-blur-md sticky top-0 z-40">
@@ -55,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </div>
             <p className="text-[11px] font-mono text-slate-400 hidden sm:block">
-              Decentralized Biomolecular Assay Replication Protocol
+              Decentralized Biomolecular Replication Evidence & Escrow Protocol
             </p>
           </div>
         </div>
@@ -82,6 +88,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Actions & Wallet Controls */}
         <div className="flex items-center space-x-2.5">
+          {/* Safe Pull Settlement / Withdrawable Credits Vault Button */}
+          {hasCredits && onWithdrawCredits && (
+            <button
+              onClick={onWithdrawCredits}
+              className="px-3 py-1.5 rounded-lg bg-bio-emerald/20 border border-bio-emerald text-bio-emerald font-mono font-bold text-xs hover:bg-bio-emerald hover:text-bio-dark transition shadow-glow-emerald flex items-center space-x-1.5 animate-bounce-short"
+              title="Claim your settled escrow balance"
+            >
+              <ArrowDownCircle className="w-4 h-4" />
+              <span>Claim {parseInt(withdrawableBalance).toLocaleString()} GEN</span>
+            </button>
+          )}
+
           {currentRole === 'SPONSOR' && (
             <button
               onClick={onCreateBountyClick}

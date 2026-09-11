@@ -167,6 +167,29 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
 
       </div>
 
+      {/* Evidence Integrity & Hardware Provenance Audit Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 font-mono text-xs">
+        <div className="bg-bio-dark/70 border border-bio-border p-2.5 rounded-lg flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-4 h-4 text-bio-cyan" />
+            <span className="text-[11px] text-slate-300 font-bold uppercase">Evidence Hash Integrity:</span>
+          </div>
+          <span className="text-[10px] text-bio-cyan font-semibold">
+            {task.assay_log_hash ? `${task.assay_log_hash.slice(0, 18)}... (Committed)` : "Uncommitted (Standard Mode)"}
+          </span>
+        </div>
+
+        <div className="bg-bio-dark/70 border border-bio-border p-2.5 rounded-lg flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Cpu className="w-4 h-4 text-bio-emerald" />
+            <span className="text-[11px] text-slate-300 font-bold uppercase">Hardware / LIMS Provenance:</span>
+          </div>
+          <span className="text-[10px] text-bio-emerald font-semibold">
+            {task.instrument_id ? `${task.provenance_type || 'LIMS'}: ${task.instrument_id}` : "Standard Instrument Log"}
+          </span>
+        </div>
+      </div>
+
       {/* Quantitative Reason Box */}
       <div className="bg-bio-dark/70 border border-bio-border p-3 rounded-lg font-mono text-xs text-slate-300">
         <span className="text-bio-emerald font-bold uppercase text-[10px] block mb-1">

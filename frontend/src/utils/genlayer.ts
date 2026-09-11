@@ -24,12 +24,37 @@ export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDR
   return Array.isArray(parsed) ? parsed : [];
 }
 
+export async function fetchWithdrawableBalance(account: string, contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<string> {
+  if (typeof window === 'undefined' || !(window as any).ethereum || !account) {
+    return "0";
+  }
+
+  try {
+    const { createClient, chains } = await import('genlayer-js');
+    const client = createClient({
+      chain: chains.studionet,
+      provider: (window as any).ethereum,
+    });
+
+    const rawRes = await client.readContract({
+      address: contractAddress as `0x${string}`,
+      functionName: 'get_withdrawable_balance',
+      args: [account],
+    });
+
+    return String(rawRes || "0");
+  } catch {
+    return "0";
+  }
+}
+
 export async function createAssayTaskOnChain(params: {
   taskId: string;
   protocolUrl: string;
   assayName: string;
   toleranceCriteria: string;
   blacklistAnomalies: string;
+  protocolSpecHash?: string;
   escrowAmount: bigint;
   userAddress: string;
   contractAddress?: string;
@@ -55,7 +80,8 @@ export async function createAssayTaskOnChain(params: {
       params.protocolUrl,
       params.assayName,
       params.toleranceCriteria,
-      params.blacklistAnomalies
+      params.blacklistAnomalies,
+      params.protocolSpecHash || ""
     ],
     value: params.escrowAmount,
   });
@@ -99,6 +125,10 @@ export async function submitAssayTelemetryOnChain(params: {
   assayLogUrl: string;
   isZkMode: boolean;
   zkProofHash: string;
+  assayLogHash?: string;
+  labProvenanceSig?: string;
+  provenanceType?: string;
+  instrumentId?: string;
   userAddress: string;
   contractAddress?: string;
 }): Promise<string> {
@@ -118,7 +148,16 @@ export async function submitAssayTelemetryOnChain(params: {
   const hash = await client.writeContract({
     address: targetContract as `0x${string}`,
     functionName: 'submit_assay_telemetry',
-    args: [params.taskId, params.assayLogUrl, params.isZkMode, params.zkProofHash],
+    args: [
+      params.taskId,
+      params.assayLogUrl,
+      params.isZkMode,
+      params.zkProofHash,
+      params.assayLogHash || "",
+      params.labProvenanceSig || "",
+      params.provenanceType || "LIMS_RAW_EXPORT",
+      params.instrumentId || ""
+    ],
     value: 0n,
   });
 
@@ -179,6 +218,34 @@ export async function finalizePayoutOnChain(params: {
     address: targetContract as `0x${string}`,
     functionName: 'finalize_payout',
     args: [params.taskId],
+    value: 0n,
+  });
+
+  await client.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+export async function withdrawCreditsOnChain(params: {
+  userAddress: string;
+  contractAddress?: string;
+}): Promise<string> {
+  if (typeof window === 'undefined' || !(window as any).ethereum) {
+    throw new Error("No Web3 wallet detected. Please install MetaMask to execute on-chain transactions.");
+  }
+
+  const { createClient, chains } = await import('genlayer-js');
+  const client = createClient({
+    chain: chains.studionet,
+    provider: (window as any).ethereum,
+    account: params.userAddress as `0x${string}`,
+  });
+
+  const targetContract = params.contractAddress || DEFAULT_CONTRACT_ADDRESS;
+
+  const hash = await client.writeContract({
+    address: targetContract as `0x${string}`,
+    functionName: 'withdraw_credits',
+    args: [],
     value: 0n,
   });
 

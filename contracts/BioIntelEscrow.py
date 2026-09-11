@@ -14,7 +14,9 @@ class AssayTask:
     appeal_bond: bigint
     status: str            # OPEN, IN_PROGRESS, AWAITING_PAYOUT, NEEDS_REVISION, DISPUTED, ESCALATED, CLOSED
     protocol_url: str
+    protocol_spec_hash: str   # Evidence integrity: immutable hash commitment (SHA-256 / IPFS CID)
     assay_log_url: str
+    assay_log_hash: str       # Evidence integrity: immutable hash of telemetry data (SHA-256 / IPFS CID)
     assay_name: str
     tolerance_criteria: str
     blacklist_anomalies: str
@@ -26,14 +28,29 @@ class AssayTask:
     disputed_at: bigint
     is_zk_mode: bool
     zk_proof_hash: str
+    lab_provenance_sig: str   # Provenance: cryptographic signature from lab key / instrument
+    provenance_type: str      # Provenance: LIMS_RAW_EXPORT, SPECTROMETER_HARDWARE_ATTESTATION, CERTIFIED_LAB_SIG
+    instrument_id: str        # Provenance: Instrument hardware model & serial number
 
 class Contract(gl.Contract):
     platform_admin: str
     tasks: TreeMap[str, AssayTask]
     task_ids: DynArray[str]
+    withdrawable_balances: TreeMap[str, bigint]  # Settlement: Pull-over-Push escrow recovery vault
 
     def __init__(self):
         self.platform_admin = str(gl.message.sender_address).lower()
+        if not hasattr(self, "withdrawable_balances") or self.withdrawable_balances is None:
+            self.withdrawable_balances = TreeMap()
+        if not hasattr(self, "tasks") or self.tasks is None:
+            self.tasks = TreeMap()
+        if not hasattr(self, "task_ids") or self.task_ids is None:
+            self.task_ids = DynArray()
+
+    def _credit_balance(self, recipient: str, amount: bigint) -> None:
+        rec = str(recipient).lower()
+        curr = self.withdrawable_balances.get(rec, bigint(0))
+        self.withdrawable_balances[rec] = curr + amount
 
     def _get_current_timestamp(self) -> bigint:
         dt_raw = gl.message_raw.get("datetime", None) if isinstance(gl.message_raw, dict) else None
@@ -85,6 +102,23 @@ class Contract(gl.Contract):
             verdict = "ESCALATE"
         return verdict
 
+    @gl.public.write
+    def withdraw_credits(self) -> None:
+        """PULL settlement pattern: Allows beneficiaries to withdraw their settled payouts or refunds safely."""
+        caller = str(gl.message.sender_address).lower()
+        bal = self.withdrawable_balances.get(caller, bigint(0))
+        if bal <= bigint(0):
+            raise UserError("No withdrawable balance available")
+        self.withdrawable_balances[caller] = bigint(0)
+        gl.get_contract_at(Address(caller)).emit_transfer(value=u256(bal))
+
+    @gl.public.view
+    def get_withdrawable_balance(self, account: str) -> str:
+        """View method to inspect pending withdrawable credit balance."""
+        acc = str(account).lower()
+        bal = self.withdrawable_balances.get(acc, bigint(0))
+        return str(bal)
+
     @gl.public.write.payable
     def create_assay_task(
         self,
@@ -92,7 +126,8 @@ class Contract(gl.Contract):
         protocol_url: str,
         assay_name: str,
         tolerance_criteria: str,
-        blacklist_anomalies: str
+        blacklist_anomalies: str,
+        protocol_spec_hash: str = ""
     ) -> None:
         if task_id in self.tasks:
             raise UserError(f"Assay task ID {task_id} already exists")
@@ -100,8 +135,8 @@ class Contract(gl.Contract):
         escrow_amt = gl.message.value
         if escrow_amt <= bigint(0):
             raise UserError("Escrow bounty must be strictly positive")
-        if not protocol_url.startswith("http"):
-            raise UserError("Valid protocol specification HTTP/HTTPS URL required")
+        if not protocol_url.startswith("http") and not protocol_url.startswith("ipfs://"):
+            raise UserError("Valid protocol specification HTTP/HTTPS or IPFS URL required")
 
         caller = str(gl.message.sender_address).lower()
         
@@ -113,7 +148,9 @@ class Contract(gl.Contract):
             appeal_bond=bigint(0),
             status="OPEN",
             protocol_url=protocol_url.strip(),
+            protocol_spec_hash=protocol_spec_hash.strip(),
             assay_log_url="",
+            assay_log_hash="",
             assay_name=assay_name.strip(),
             tolerance_criteria=tolerance_criteria.strip(),
             blacklist_anomalies=blacklist_anomalies.strip(),
@@ -124,7 +161,10 @@ class Contract(gl.Contract):
             payout_ready_at=bigint(0),
             disputed_at=bigint(0),
             is_zk_mode=False,
-            zk_proof_hash=""
+            zk_proof_hash="",
+            lab_provenance_sig="",
+            provenance_type="STANDARD_EXPORT",
+            instrument_id=""
         )
         self.task_ids.append(task_id)
 
@@ -150,7 +190,17 @@ class Contract(gl.Contract):
         self.tasks[task_id] = task
 
     @gl.public.write
-    def submit_assay_telemetry(self, task_id: str, assay_log_url: str, is_zk_mode: bool = False, zk_proof_hash: str = "") -> None:
+    def submit_assay_telemetry(
+        self,
+        task_id: str,
+        assay_log_url: str,
+        is_zk_mode: bool = False,
+        zk_proof_hash: str = "",
+        assay_log_hash: str = "",
+        lab_provenance_sig: str = "",
+        provenance_type: str = "LIMS_RAW_EXPORT",
+        instrument_id: str = ""
+    ) -> None:
         if task_id not in self.tasks:
             raise UserError("Task not found")
         task = self.tasks[task_id]
@@ -161,21 +211,30 @@ class Contract(gl.Contract):
         if task.status not in ["IN_PROGRESS", "NEEDS_REVISION"]:
             raise UserError("Task is not ready for telemetry submission")
         
-        if not is_zk_mode and not assay_log_url.startswith("http"):
-            raise UserError("Valid telemetry log HTTP/HTTPS URL required in standard mode")
+        if not is_zk_mode and not assay_log_url.startswith("http") and not assay_log_url.startswith("ipfs://"):
+            raise UserError("Valid telemetry log HTTP/HTTPS or IPFS URL required in standard mode")
         if is_zk_mode and not zk_proof_hash:
             raise UserError("ZK proof hash required in ZK compliance mode")
 
         task.assay_log_url = assay_log_url.strip()
+        task.assay_log_hash = assay_log_hash.strip()
         task.is_zk_mode = is_zk_mode
         task.zk_proof_hash = zk_proof_hash.strip()
+        task.lab_provenance_sig = lab_provenance_sig.strip()
+        task.provenance_type = provenance_type.strip()
+        task.instrument_id = instrument_id.strip()
         task.attempts += bigint(1)
         
         proto_str = task.protocol_url
+        proto_hash = task.protocol_spec_hash
         log_str = task.assay_log_url
+        log_hash = task.assay_log_hash
         name_str = task.assay_name
         tol_str = task.tolerance_criteria
         ano_str = task.blacklist_anomalies
+        prov_type = task.provenance_type
+        inst_id = task.instrument_id
+        lab_sig = task.lab_provenance_sig
 
         def leader_fn() -> dict:
             try:
@@ -185,7 +244,7 @@ class Contract(gl.Contract):
                     return {
                         "verdict": "ESCALATE", "confidence": 100, 
                         "statistician_vote": "ESCALATE", "biochemist_vote": "ESCALATE", "contamination_vote": "ESCALATE",
-                        "reason": "Baseline protocol URL is 404; escrow held to protect replication lab."
+                        "reason": "Baseline protocol URL is 404; escrow held to protect replication lab against rugpull."
                     }
             except Exception as e:
                 return {
@@ -215,8 +274,8 @@ class Contract(gl.Contract):
                 l_text = f"ZK Shielded Mode Active. Telemetry Hash: {zk_proof_hash}. Zero-Knowledge proof compliance validated off-chain."
 
             prompt = f"""
-You are a Multi-Agent AI Scientific Board on GenLayer.
-Evaluate the replication assay telemetry against the baseline scientific protocol.
+You are a Multi-Agent AI Scientific Board on GenLayer evaluating replication evidence.
+Evaluate the biomolecular assay replication evidence against the baseline protocol specifications.
 
 ASSAY TITLE:
 {name_str}
@@ -224,7 +283,16 @@ ASSAY TITLE:
 BASELINE PROTOCOL SPECIFICATION:
 {p_text[:2500]}
 
-STATISTICAL TOLERANCE:
+EVIDENCE INTEGRITY & IMMUTABLE HASH COMMITMENTS:
+- Baseline Protocol Hash Committed by Sponsor: {proto_hash if proto_hash else 'NOT_COMMITTED'}
+- Telemetry Data Hash Committed by Lab: {log_hash if log_hash else 'NOT_COMMITTED'}
+
+LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
+- Provenance Type: {prov_type}
+- Instrument Model / ID: {inst_id if inst_id else 'UNSPECIFIED_DEVICE'}
+- Certified Lab Attestation Signature: {lab_sig if lab_sig else 'NONE'}
+
+STATISTICAL TOLERANCE CRITERIA:
 {tol_str}
 
 BLACKLISTED ANOMALIES:
@@ -233,13 +301,16 @@ BLACKLISTED ANOMALIES:
 TELEMETRY DATA / LOGS:
 {l_text[:2500]}
 
-Please conduct a Peer-Review with 3 distinct scientific agent personas:
-1. STATISTICIAN AGENT: Evaluates R^2 linearity, p-value limits, drift, and curve metrics.
-2. BIOCHEMIST EXPERT AGENT: Evaluates reagent setup, target specificity, and laboratory methodology.
-3. CONTAMINATION GUARD AGENT: Evaluates negative control channels and background noise.
+Please conduct an independent Peer-Review with 3 distinct scientific agent personas:
+1. STATISTICIAN AGENT: Evaluates R^2 linearity (>0.98), p-value significance (<0.01), CV (<5%), and kinetic curve fidelity.
+2. BIOCHEMIST EXPERT AGENT: Evaluates reagent stoichiometry, assay calibration, and laboratory methodology.
+3. CONTAMINATION GUARD AGENT: Evaluates negative control channels, cross-contamination, and baseline blanking.
 
-Each agent must vote: APPROVED, PARTIAL, REFUND, or ESCALATE.
-The overall verdict is the majority vote (at least 2 out of 3 agents agreeing).
+EVALUATION RULES:
+- If evidence integrity hash mismatch or tampering is suspected, vote ESCALATE with confidence 100.
+- If lab provenance attestation is missing or invalid, flag in reasoning.
+- Each agent must vote: APPROVED, PARTIAL, REFUND, or ESCALATE.
+- Overall verdict is the majority vote (at least 2 out of 3 agents agreeing).
 
 Respond ONLY with valid JSON:
 {{
@@ -248,7 +319,7 @@ Respond ONLY with valid JSON:
   "contamination_vote": "APPROVED|PARTIAL|REFUND|ESCALATE",
   "verdict": "APPROVED|PARTIAL|REFUND|ESCALATE",
   "confidence": 0-100,
-  "reason": "Detailed multi-agent peer-review review summary."
+  "reason": "Detailed multi-agent peer-review review summary assessing statistical, biochemical, contamination, and provenance integrity."
 }}
 """
             res = gl.nondet.exec_prompt(prompt, response_format="json")
@@ -299,7 +370,8 @@ Respond ONLY with valid JSON:
                 total_refund = task.escrow_amount + task.lab_stake
                 task.escrow_amount = bigint(0)
                 task.lab_stake = bigint(0)
-                gl.get_contract_at(Address(task.sponsor)).emit_transfer(value=u256(total_refund))
+                # Pull-over-Push settlement credit
+                self._credit_balance(task.sponsor, total_refund)
         else:
             task.status = "ESCALATED"
 
@@ -335,6 +407,7 @@ Respond ONLY with valid JSON:
 
     @gl.public.write
     def finalize_payout(self, task_id: str) -> None:
+        """Finalizes payout into withdrawable escrow credit balances using safe Pull-over-Push pattern."""
         if task_id not in self.tasks:
             raise UserError("Task not found")
         task = self.tasks[task_id]
@@ -355,19 +428,20 @@ Respond ONLY with valid JSON:
         task.escrow_amount = bigint(0)
         task.lab_stake = bigint(0)
 
+        # Pull-over-Push: credit into withdrawable balances
         if task.verdict == "APPROVED":
-            gl.get_contract_at(Address(task.lab)).emit_transfer(value=u256(escrow + stake))
+            self._credit_balance(task.lab, escrow + stake)
         elif task.verdict == "PARTIAL":
             half = escrow // bigint(2)
             rem = escrow - half
-            gl.get_contract_at(Address(task.lab)).emit_transfer(value=u256(half + stake))
-            gl.get_contract_at(Address(task.sponsor)).emit_transfer(value=u256(rem))
+            self._credit_balance(task.lab, half + stake)
+            self._credit_balance(task.sponsor, rem)
 
         self.tasks[task_id] = task
 
     @gl.public.write
     def resolve_dispute_via_referee(self, task_id: str) -> None:
-        """AI Referee automatically resolves disputes on-chain by evaluating scientific dispute reasons."""
+        """AI Referee automatically resolves disputes on-chain and credits settlement balances."""
         if task_id not in self.tasks:
             raise UserError("Task not found")
         task = self.tasks[task_id]
@@ -378,6 +452,9 @@ Respond ONLY with valid JSON:
         log_str = task.assay_log_url
         name_str = task.assay_name
         dispute_reason = task.reason
+        prov_type = task.provenance_type
+        inst_id = task.instrument_id
+        lab_sig = task.lab_provenance_sig
 
         def leader_referee_fn() -> dict:
             try:
@@ -409,13 +486,18 @@ BASELINE SPECIFICATION:
 TELEMETRY DATA / LOGS:
 {l_text[:2000]}
 
+LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
+- Provenance Type: {prov_type}
+- Instrument Model / ID: {inst_id}
+- Lab Attestation Signature: {lab_sig if lab_sig else 'NONE'}
+
 SPONSOR'S SCIENTIFIC DISPUTE REASON:
 {dispute_reason}
 
 DECISION FRAMEWORK:
 - If the Sponsor's dispute is valid (e.g. baseline blanking uncalibrated, genuine cross-contamination, primer-dimers in NTC wells):
   Respond: {{"verdict": "REFUND", "reason": "Detailed scientific evaluation upholding the dispute."}}
-- If the Sponsor's dispute is invalid (e.g. Lab performed the assay correctly, deviation is within tolerances):
+- If the Sponsor's dispute is invalid (e.g. Lab performed the assay correctly, deviation is within tolerances, valid hardware attestation):
   Respond: {{"verdict": "RELEASE", "reason": "Detailed scientific evaluation rejecting the dispute."}}
 
 Respond ONLY with valid JSON:
@@ -453,18 +535,19 @@ Respond ONLY with valid JSON:
         task.appeal_bond = bigint(0)
         task.reason = reason
 
+        # Pull-over-Push safe settlement
         if referee_verdict == "RELEASE":
             # Lab wins: gets bounty + lab stake + slashed sponsor appeal bond
-            gl.get_contract_at(Address(task.lab)).emit_transfer(value=u256(escrow + stake + bond))
+            self._credit_balance(task.lab, escrow + stake + bond)
         else:
             # Sponsor wins: gets refunded bounty + lab stake (slashed) + returned appeal bond
-            gl.get_contract_at(Address(task.sponsor)).emit_transfer(value=u256(escrow + stake + bond))
+            self._credit_balance(task.sponsor, escrow + stake + bond)
 
         self.tasks[task_id] = task
 
     @gl.public.write
     def resolve_escalation(self, task_id: str, action: str) -> None:
-        """Arbitration path for ESCALATED tasks (RELEASE, REFUND, or SPLIT)."""
+        """Arbitration path for ESCALATED tasks (RELEASE, REFUND, or SPLIT) crediting safe withdrawable balances."""
         if task_id not in self.tasks:
             raise UserError("Task not found")
         task = self.tasks[task_id]
@@ -490,15 +573,16 @@ Respond ONLY with valid JSON:
         task.lab_stake = bigint(0)
         task.appeal_bond = bigint(0)
 
+        # Pull-over-Push: credit into beneficiary balances
         if act == "RELEASE":
-            gl.get_contract_at(Address(task.lab)).emit_transfer(value=u256(escrow + stake + bond))
+            self._credit_balance(task.lab, escrow + stake + bond)
         elif act == "REFUND":
-            gl.get_contract_at(Address(task.sponsor)).emit_transfer(value=u256(escrow + stake + bond))
+            self._credit_balance(task.sponsor, escrow + stake + bond)
         elif act == "SPLIT":
             half = escrow // bigint(2)
             rem = escrow - half
-            gl.get_contract_at(Address(task.lab)).emit_transfer(value=u256(half + stake))
-            gl.get_contract_at(Address(task.sponsor)).emit_transfer(value=u256(rem + bond))
+            self._credit_balance(task.lab, half + stake)
+            self._credit_balance(task.sponsor, rem + bond)
         else:
             raise UserError("Invalid action. Must be RELEASE, REFUND, or SPLIT")
 
@@ -519,7 +603,9 @@ Respond ONLY with valid JSON:
                     "appeal_bond": str(t.appeal_bond),
                     "status": t.status,
                     "protocol_url": t.protocol_url,
+                    "protocol_spec_hash": t.protocol_spec_hash,
                     "assay_log_url": t.assay_log_url,
+                    "assay_log_hash": t.assay_log_hash,
                     "assay_name": t.assay_name,
                     "tolerance_criteria": t.tolerance_criteria,
                     "blacklist_anomalies": t.blacklist_anomalies,
@@ -530,6 +616,9 @@ Respond ONLY with valid JSON:
                     "payout_ready_at": str(t.payout_ready_at),
                     "disputed_at": str(t.disputed_at),
                     "is_zk_mode": t.is_zk_mode,
-                    "zk_proof_hash": t.zk_proof_hash
+                    "zk_proof_hash": t.zk_proof_hash,
+                    "lab_provenance_sig": t.lab_provenance_sig,
+                    "provenance_type": t.provenance_type,
+                    "instrument_id": t.instrument_id
                 })
         return json.dumps(res)

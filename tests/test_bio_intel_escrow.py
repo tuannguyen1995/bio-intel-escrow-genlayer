@@ -24,6 +24,7 @@ class MockGL:
         def __init__(self):
             self.tasks = {}
             self.task_ids = []
+            self.withdrawable_balances = {}
             self.platform_admin = "0xadmin"
 
     class public:
@@ -89,6 +90,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract = contract_module.Contract()
         self.contract.tasks = {}
         self.contract.task_ids = []
+        self.contract.withdrawable_balances = {}
         self.contract.platform_admin = self.admin.lower()
 
         # Sponsor creates bounty with 2000 GEN escrow
@@ -98,9 +100,10 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract.create_assay_task(
             self.tid,
             "https://protocols.io/spec/crispr_cleavage.json",
-            "Cas12a Cleavage Kinetic Replication Assay",
+            "CRISPR Cas12a Cleavage Kinetic Replication Assay",
             "p-value < 0.01, R^2 > 0.98, CV < 5%",
-            "Negative control cleaved, sensor saturation, reagent degradation"
+            "Negative control cleaved, baseline drift > 10%",
+            protocol_spec_hash="sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         )
 
     def test_01_under_staking_reverts(self):
@@ -110,13 +113,13 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         with self.assertRaises(MockUserError):
             self.contract.accept_assay_task(self.tid)
 
-    def test_02_valid_telemetry_approved_and_cooling_off(self):
-        """Telemetry approved by multi-agent board -> 24h delay enforced before 2400 GEN (2000 + 400 stake) release."""
+    def test_02_valid_telemetry_approved_and_pull_settlement(self):
+        """Telemetry approved by multi-agent board -> 24h delay enforced -> Pull settlement via withdraw_credits."""
         self.gl.message.sender_address = self.lab
-        self.gl.message.value = MockBigInt(400)
+        self.gl.message.value = MockBigInt(400) # 20% of 2000
         self.contract.accept_assay_task(self.tid)
 
-        self.gl.nondet.web.render = lambda url, mode="text": "Validated OD600 and Fluorescence telemetry"
+        self.gl.nondet.web.render = lambda url, mode="text": "Mocked spectrometry data R^2=0.994, p=0.0005"
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
             "statistician_vote": "APPROVED",
             "biochemist_vote": "APPROVED",
@@ -126,7 +129,14 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             "reason": "R^2=0.994, p<0.001, negative controls intact"
         }
 
-        self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry_01.csv")
+        self.contract.submit_assay_telemetry(
+            self.tid, 
+            "https://lab-logs.org/telemetry_01.csv",
+            assay_log_hash="sha256:dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f",
+            lab_provenance_sig="0x89abcdef12345678",
+            provenance_type="LIMS_RAW_EXPORT",
+            instrument_id="Biotek-Synergy-H1-48821"
+        )
         self.assertEqual(self.contract.tasks[self.tid].status, "AWAITING_PAYOUT")
 
         # Early finalization attempt -> REVERT
@@ -134,12 +144,20 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         with self.assertRaises(MockUserError):
             self.contract.finalize_payout(self.tid)
 
-        # Finalization at T+24h01m -> SUCCEEDS
+        # Finalization at T+24h01m -> SUCCEEDS and credits withdrawable vault
         self.gl.message_raw = {"datetime": "2026-08-24T00:01:00+00:00"}
         self.contract.finalize_payout(self.tid)
         self.assertEqual(self.contract.tasks[self.tid].status, "CLOSED")
+        
+        # Verify pull-over-push withdrawable credit balance (2000 bounty + 400 stake = 2400)
+        self.assertEqual(self.contract.get_withdrawable_balance(self.lab), "2400")
+
+        # Lab pulls settled credits via withdraw_credits()
+        self.gl.message.sender_address = self.lab
+        self.contract.withdraw_credits()
         self.assertEqual(self.gl.transfers[0]["to"], self.lab)
         self.assertEqual(self.gl.transfers[0]["value"], 2400)
+        self.assertEqual(self.contract.get_withdrawable_balance(self.lab), "0")
 
     def test_03_dispute_flow_with_insufficient_bond_reverts(self):
         """Dispute attempt with < 10% appeal bond (199 < 200) -> MUST REVERT"""
@@ -166,7 +184,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             self.contract.raise_dispute(self.tid, "Plate reader baseline blanking was uncalibrated")
 
     def test_04_referee_dispute_resolution(self):
-        """Sponsor stakes 200 GEN bond to dispute -> AI referee rules in favor of Sponsor -> Slashing occurs."""
+        """Sponsor stakes 200 GEN bond to dispute -> AI referee rules in favor of Sponsor -> Slashing occurs -> Withdrawable credit created."""
         self.gl.message.sender_address = self.lab
         self.gl.message.value = MockBigInt(400)
         self.contract.accept_assay_task(self.tid)
@@ -198,8 +216,47 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract.resolve_dispute_via_referee(self.tid)
         
         self.assertEqual(self.contract.tasks[self.tid].status, "CLOSED")
+        self.assertEqual(self.contract.get_withdrawable_balance(self.sponsor), "2600")
+
+        # Sponsor claims credited settlement
+        self.gl.message.sender_address = self.sponsor
+        self.contract.withdraw_credits()
         self.assertEqual(self.gl.transfers[0]["to"], self.sponsor)
         self.assertEqual(self.gl.transfers[0]["value"], 2600)
+
+    def test_05_evidence_integrity_and_provenance_storage(self):
+        """Ensure hash commitment and laboratory instrument provenance are securely stored in contract state."""
+        task = self.contract.tasks[self.tid]
+        self.assertEqual(task.protocol_spec_hash, "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(400)
+        self.contract.accept_assay_task(self.tid)
+
+        self.gl.nondet.web.render = lambda url, mode="text": "Valid assay telemetry log"
+        self.gl.nondet.exec_prompt = lambda p, response_format="json": {
+            "statistician_vote": "APPROVED",
+            "biochemist_vote": "APPROVED",
+            "contamination_vote": "APPROVED",
+            "verdict": "APPROVED",
+            "confidence": 98,
+            "reason": "Telemetry verified against committed hash with authenticated instrument telemetry."
+        }
+        self.contract.submit_assay_telemetry(
+            self.tid,
+            "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+            is_zk_mode=False,
+            assay_log_hash="sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            lab_provenance_sig="0x9c3f4e2...lab_ecdsa_sig",
+            provenance_type="SPECTROMETER_HARDWARE_ATTESTATION",
+            instrument_id="Tecan-Infinite-M-Nano-SN9912"
+        )
+
+        updated_task = self.contract.tasks[self.tid]
+        self.assertEqual(updated_task.assay_log_hash, "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945")
+        self.assertEqual(updated_task.provenance_type, "SPECTROMETER_HARDWARE_ATTESTATION")
+        self.assertEqual(updated_task.instrument_id, "Tecan-Infinite-M-Nano-SN9912")
+        self.assertEqual(updated_task.lab_provenance_sig, "0x9c3f4e2...lab_ecdsa_sig")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

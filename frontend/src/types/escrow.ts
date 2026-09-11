@@ -15,9 +15,12 @@ export interface AssayTask {
   lab: string;
   escrow_amount: string;
   lab_stake: string;
+  appeal_bond?: string;
   status: TaskStatus;
   protocol_url: string;
+  protocol_spec_hash?: string;
   assay_log_url: string;
+  assay_log_hash?: string;
   assay_name: string;
   tolerance_criteria: string;
   blacklist_anomalies: string;
@@ -29,6 +32,9 @@ export interface AssayTask {
   disputed_at: string;
   is_zk_mode: boolean;
   zk_proof_hash: string;
+  lab_provenance_sig?: string;
+  provenance_type?: string;
+  instrument_id?: string;
 }
 
 export interface SpectrophotometryDataPoint {
