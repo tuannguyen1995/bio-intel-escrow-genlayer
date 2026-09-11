@@ -28,3 +28,22 @@ export function formatGEN(val: string | bigint | number | undefined | null): str
     return String(val);
   }
 }
+
+/**
+ * Converts human token amount (e.g. "100" or "0.5") into 18-decimal BigInt (wei units).
+ * "100" -> 100000000000000000000n
+ */
+export function parseGEN(val: string | number | undefined | null): bigint {
+  if (!val) return 0n;
+  const str = String(val).trim();
+  if (!str) return 0n;
+  const parts = str.split('.');
+  const whole = BigInt(parts[0] || '0');
+  let fraction = parts[1] || '';
+  if (fraction.length > 18) {
+    fraction = fraction.slice(0, 18);
+  } else {
+    fraction = fraction.padEnd(18, '0');
+  }
+  return whole * (10n ** 18n) + BigInt(fraction);
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Dna, PlusCircle, AlertCircle, ShieldCheck, Hash } from 'lucide-react';
+import { parseGEN } from '../utils/formatters';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -59,8 +60,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       return;
     }
 
-    const amountNum = parseInt(escrowAmount, 10);
-    if (isNaN(amountNum) || amountNum <= 0) {
+    const parsedAmount = parseGEN(escrowAmount);
+    if (parsedAmount <= 0n) {
       setError('Escrow bounty must be greater than 0 GEN');
       return;
     }
@@ -74,7 +75,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         protocolSpecHash: protocolSpecHash.trim(),
         toleranceCriteria: toleranceCriteria.trim(),
         blacklistAnomalies: blacklistAnomalies.trim(),
-        escrowAmount: BigInt(amountNum),
+        escrowAmount: parsedAmount,
       });
       onClose();
     } catch (err: any) {

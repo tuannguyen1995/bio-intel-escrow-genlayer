@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, Lock, AlertCircle } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
+import { formatGEN, parseGEN } from '../utils/formatters';
 
 interface AcceptTaskModalProps {
   task: AssayTask | null;
@@ -18,8 +19,10 @@ export const AcceptTaskModal: React.FC<AcceptTaskModalProps> = ({
   if (!isOpen || !task) return null;
 
   const escrowNum = BigInt(task.escrow_amount || '0');
+  const isWei = escrowNum >= 10n ** 14n;
   const minStake = escrowNum / 5n; // 20%
-  const [customStake, setCustomStake] = useState(minStake.toString());
+  const initialStakeStr = isWei ? (minStake / (10n ** 18n)).toString() : minStake.toString();
+  const [customStake, setCustomStake] = useState(initialStakeStr);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,9 +30,9 @@ export const AcceptTaskModal: React.FC<AcceptTaskModalProps> = ({
     e.preventDefault();
     setError('');
 
-    const stakeVal = BigInt(customStake || '0');
+    const stakeVal = isWei ? parseGEN(customStake) : BigInt(customStake || '0');
     if (stakeVal < minStake) {
-      setError(`Minimum 20% stake required (${minStake.toString()} GEN)`);
+      setError(`Minimum 20% stake required (${formatGEN(minStake)} GEN)`);
       return;
     }
 
@@ -72,11 +75,11 @@ export const AcceptTaskModal: React.FC<AcceptTaskModalProps> = ({
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Sponsor Escrow Bounty:</span>
-            <span className="text-bio-emerald font-bold">{parseInt(task.escrow_amount).toLocaleString()} GEN</span>
+            <span className="text-bio-emerald font-bold">{formatGEN(task.escrow_amount)} GEN</span>
           </div>
           <div className="flex justify-between border-t border-bio-border/60 pt-1.5">
             <span className="text-bio-cyan font-semibold">Required Minimum Stake (20%):</span>
-            <span className="text-bio-cyan font-bold">{parseInt(minStake.toString()).toLocaleString()} GEN</span>
+            <span className="text-bio-cyan font-bold">{formatGEN(minStake)} GEN</span>
           </div>
         </div>
 
