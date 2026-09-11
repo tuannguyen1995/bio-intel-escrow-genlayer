@@ -28,7 +28,17 @@ import {
 import { Dna, RefreshCw, Layers, Wallet, AlertCircle, PlusCircle } from 'lucide-react';
 
 export function App() {
-  const [contractAddress, setContractAddress] = useState<string>(DEFAULT_CONTRACT_ADDRESS);
+  const [contractAddress, setContractAddress] = useState<string>(() => {
+    return localStorage.getItem('biointel_contract_address') || DEFAULT_CONTRACT_ADDRESS;
+  });
+
+  const handleUpdateContractAddress = (newAddr: string) => {
+    const trimmed = newAddr.trim();
+    setContractAddress(trimmed);
+    if (trimmed) {
+      localStorage.setItem('biointel_contract_address', trimmed);
+    }
+  };
   const [tasks, setTasks] = useState<AssayTask[]>([]);
   const [selectedTask, setSelectedTask] = useState<AssayTask | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('SPONSOR');
@@ -314,7 +324,7 @@ export function App() {
         disconnectWallet={disconnectWallet}
         isConnected={isConnected}
         contractAddress={contractAddress}
-        setContractAddress={setContractAddress}
+        setContractAddress={handleUpdateContractAddress}
         onCreateBountyClick={() => setIsCreateModalOpen(true)}
         withdrawableBalance={withdrawableBalance}
         onWithdrawCredits={handleWithdrawCredits}

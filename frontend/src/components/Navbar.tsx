@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dna, Wallet, LogOut, Activity, User, Settings, Check, Copy, ArrowDownCircle } from 'lucide-react';
 import { UserRole } from '../types/escrow';
 import { formatGEN } from '../utils/formatters';
@@ -31,7 +31,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   onWithdrawCredits,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [tempAddress, setTempAddress] = useState(contractAddress);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setTempAddress(contractAddress);
+  }, [contractAddress]);
+
+  const handleApplyContract = () => {
+    if (tempAddress.trim()) {
+      setContractAddress(tempAddress.trim());
+    }
+  };
 
   const copyAddress = () => {
     if (walletAddress) {
@@ -161,16 +172,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Contract Settings Dropdown / Panel */}
       {showSettings && (
-        <div className="bg-bio-dark border-t border-bio-border py-2.5 px-4 font-mono text-xs">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <span className="text-slate-400 text-[11px]">Deployed GenLayer Contract Address:</span>
-            <input
-              type="text"
-              value={contractAddress}
-              onChange={(e) => setContractAddress(e.target.value)}
-              className="bg-bio-card border border-bio-border px-3 py-1 rounded text-bio-cyan font-bold w-full sm:w-96 text-xs focus:border-bio-cyan focus:outline-none"
-              placeholder="0x..."
-            />
+        <div className="bg-bio-dark border-t border-bio-border py-3 px-4 font-mono text-xs">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <span className="text-slate-200 font-bold text-xs flex items-center gap-1.5">
+                <Settings className="w-3.5 h-3.5 text-bio-cyan" />
+                Active Contract Pointer
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Switching contracts will filter all on-chain tasks exclusively to the new contract instance.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <input
+                type="text"
+                value={tempAddress}
+                onChange={(e) => setTempAddress(e.target.value)}
+                className="bg-bio-card border border-bio-border px-3 py-1.5 rounded text-bio-cyan font-bold w-full sm:w-96 text-xs focus:border-bio-cyan focus:outline-none font-mono"
+                placeholder="0x..."
+              />
+              <button
+                onClick={handleApplyContract}
+                className="px-3.5 py-1.5 rounded bg-bio-cyan text-bio-dark font-bold text-xs hover:opacity-90 transition shrink-0 shadow-glow-cyan"
+              >
+                Switch & Load
+              </button>
+            </div>
           </div>
         </div>
       )}
