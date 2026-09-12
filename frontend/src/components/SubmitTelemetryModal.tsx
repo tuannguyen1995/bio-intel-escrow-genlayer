@@ -39,6 +39,20 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
   const handleComputeSha256 = async () => {
     if (!assayLogUrl.trim()) return;
     try {
+      try {
+        const res = await fetch(assayLogUrl.trim());
+        if (res.ok) {
+          const text = await res.text();
+          const encoder = new TextEncoder();
+          const data = encoder.encode(text);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          setAssayLogHash(`sha256:${hashHex}`);
+          return;
+        }
+      } catch {
+        // Fallback to hashing URL string
+      }
       const encoder = new TextEncoder();
       const data = encoder.encode(assayLogUrl.trim());
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -53,14 +67,28 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
     e.preventDefault();
     setError('');
 
-    if (!isZkMode && !assayLogUrl.trim().startsWith('http') && !assayLogUrl.trim().startsWith('ipfs://')) {
-      setError('Assay telemetry log must be a valid HTTP/HTTPS or IPFS URL in standard mode');
-      return;
-    }
-
-    if (isZkMode && !zkProofHash.trim()) {
-      setError('Cryptographic proof hash is required in ZK compliance mode');
-      return;
+    if (!isZkMode) {
+      if (!assayLogUrl.trim().startsWith('http') && !assayLogUrl.trim().startsWith('ipfs://')) {
+        setError('Assay telemetry log must be a valid HTTP/HTTPS or IPFS URL in standard mode');
+        return;
+      }
+      const cleanLogHash = assayLogHash.trim();
+      if (!cleanLogHash) {
+        setError('Mandatory Evidence Anchoring: Immutable telemetry log hash commitment (SHA-256 or IPFS CID) is strictly required.');
+        return;
+      }
+      if (!cleanLogHash.startsWith('ipfs://')) {
+        const normHash = cleanLogHash.toLowerCase().replace('sha256:', '').trim();
+        if (normHash.length !== 64 || !/^[0-9a-f]{64}$/.test(normHash)) {
+          setError('Assay telemetry log hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.');
+          return;
+        }
+      }
+    } else {
+      if (!zkProofHash.trim()) {
+        setError('Cryptographic proof hash is required in ZK compliance mode');
+        return;
+      }
     }
 
     setLoading(true);
@@ -70,7 +98,7 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
         assayLogUrl: isZkMode ? '' : assayLogUrl.trim(),
         isZkMode,
         zkProofHash: isZkMode ? zkProofHash.trim() : '',
-        assayLogHash: assayLogHash.trim(),
+        assayLogHash: isZkMode ? '' : assayLogHash.trim(),
         labProvenanceSig: labProvenanceSig.trim(),
         provenanceType: provenanceType.trim(),
         instrumentId: instrumentId.trim(),

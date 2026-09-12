@@ -94,7 +94,18 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract.withdrawable_balances = {}
         self.contract.platform_admin = self.admin.lower()
 
-        # Sponsor creates bounty with 2000 GEN escrow
+        # Define canonical baseline protocol content and its immutable SHA-256 hash
+        self.proto_content = "CRISPR-Cas12a Cleavage Kinetic Replication Specification Standard v1.0"
+        self.proto_hash = hashlib.sha256(self.proto_content.encode("utf-8")).hexdigest()
+
+        # Define canonical telemetry log content and its immutable SHA-256 hash
+        self.log_content = "Mocked spectrometry data R^2=0.994, p=0.0005, CV=3.2%"
+        self.log_hash = hashlib.sha256(self.log_content.encode("utf-8")).hexdigest()
+
+        # Default web render returns matching contents
+        self.gl.nondet.web.render = lambda url, mode="text": self.proto_content if "protocols.io" in url else self.log_content
+
+        # Sponsor creates bounty with 2000 GEN escrow and mandatory protocol hash commitment
         self.tid = "assay_crispr_kinetic_01"
         self.gl.message.sender_address = self.sponsor
         self.gl.message.value = MockBigInt(2000)
@@ -104,7 +115,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             "CRISPR Cas12a Cleavage Kinetic Replication Assay",
             "p-value < 0.01, R^2 > 0.98, CV < 5%",
             "Negative control cleaved, baseline drift > 10%",
-            protocol_spec_hash=""
+            protocol_spec_hash=f"sha256:{self.proto_hash}"
         )
 
     def test_01_under_staking_reverts(self):
@@ -120,7 +131,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.gl.message.value = MockBigInt(400) # 20% of 2000
         self.contract.accept_assay_task(self.tid)
 
-        self.gl.nondet.web.render = lambda url, mode="text": "Mocked spectrometry data R^2=0.994, p=0.0005"
+        self.gl.nondet.web.render = lambda url, mode="text": self.proto_content if "protocols.io" in url else self.log_content
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
             "statistician_vote": "APPROVED",
             "biochemist_vote": "APPROVED",
@@ -133,7 +144,7 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.contract.submit_assay_telemetry(
             self.tid, 
             "https://lab-logs.org/telemetry_01.csv",
-            assay_log_hash="",
+            assay_log_hash=f"sha256:{self.log_hash}",
             lab_provenance_sig="0x89abcdef12345678",
             provenance_type="LIMS_RAW_EXPORT",
             instrument_id="Biotek-Synergy-H1-48821"
@@ -166,7 +177,6 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.gl.message.value = MockBigInt(400)
         self.contract.accept_assay_task(self.tid)
 
-        self.gl.nondet.web.render = lambda url, mode="text": "Spectrometry data"
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
             "statistician_vote": "APPROVED",
             "biochemist_vote": "APPROVED",
@@ -175,7 +185,11 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             "confidence": 95,
             "reason": "Passed"
         }
-        self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry.csv")
+        self.contract.submit_assay_telemetry(
+            self.tid,
+            "https://lab-logs.org/telemetry.csv",
+            assay_log_hash=f"sha256:{self.log_hash}"
+        )
 
         # Sponsor raises dispute with insufficient bond -> REVERT
         self.gl.message_raw = {"datetime": "2026-08-23T06:00:00+00:00"}
@@ -190,7 +204,6 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.gl.message.value = MockBigInt(400)
         self.contract.accept_assay_task(self.tid)
 
-        self.gl.nondet.web.render = lambda url, mode="text": "Spectrometry data"
         self.gl.nondet.exec_prompt = lambda p, response_format="json": {
             "statistician_vote": "APPROVED",
             "biochemist_vote": "APPROVED",
@@ -199,7 +212,11 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
             "confidence": 95,
             "reason": "Passed"
         }
-        self.contract.submit_assay_telemetry(self.tid, "https://lab-logs.org/telemetry.csv")
+        self.contract.submit_assay_telemetry(
+            self.tid,
+            "https://lab-logs.org/telemetry.csv",
+            assay_log_hash=f"sha256:{self.log_hash}"
+        )
 
         # Sponsor raises dispute with sufficient 200 GEN bond (10% of 2000)
         self.gl.message_raw = {"datetime": "2026-08-23T06:00:00+00:00"}
@@ -317,6 +334,85 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         # Should be caught by Python SHA-256 and flagged REFUND
         self.assertEqual(task.verdict, "REFUND")
         self.assertIn("Assay log hash mismatch", task.reason)
+
+    def test_07_empty_protocol_spec_hash_strictly_reverts(self):
+        """Contract strictly rejects task creation if protocol_spec_hash is empty -> MUST REVERT"""
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        with self.assertRaises(MockUserError):
+            self.contract.create_assay_task(
+                "task_empty_hash",
+                "https://protocols.io/spec.json",
+                "Name",
+                "Tol",
+                "Ano",
+                protocol_spec_hash=""
+            )
+
+    def test_08_invalid_protocol_spec_hash_format_reverts(self):
+        """Contract strictly rejects task creation if protocol_spec_hash is not 64 hex chars or IPFS -> MUST REVERT"""
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        with self.assertRaises(MockUserError):
+            self.contract.create_assay_task(
+                "task_bad_hash",
+                "https://protocols.io/spec.json",
+                "Name",
+                "Tol",
+                "Ano",
+                protocol_spec_hash="sha256:1234_too_short"
+            )
+
+    def test_09_empty_telemetry_hash_strictly_reverts(self):
+        """Contract strictly rejects telemetry submission if assay_log_hash is empty in standard mode -> MUST REVERT"""
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(400)
+        self.contract.accept_assay_task(self.tid)
+
+        with self.assertRaises(MockUserError):
+            self.contract.submit_assay_telemetry(
+                self.tid,
+                "https://lab.org/log.csv",
+                assay_log_hash=""
+            )
+
+    def test_10_protocol_spec_hash_mismatch_triggers_escalate(self):
+        """When rendered protocol web content drifts from committed SHA-256 snapshot -> ESCALATE with 100% confidence"""
+        tid4 = "task_drifted_proto"
+        real_content = "Original Protocol Specification"
+        drifted_content = "Attacker Modified Protocol Specification"
+        original_hash = hashlib.sha256(real_content.encode("utf-8")).hexdigest()
+
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        self.contract.create_assay_task(
+            tid4,
+            "https://protocols.io/spec/mutable.json",
+            "Assay",
+            "Tol",
+            "Ano",
+            protocol_spec_hash=f"sha256:{original_hash}"
+        )
+
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(200)
+        self.contract.accept_assay_task(tid4)
+
+        # Web server returns drifted/modified content!
+        self.gl.nondet.web.render = lambda url, mode="text": drifted_content if "mutable" in url else self.log_content
+
+        self.contract.submit_assay_telemetry(
+            tid4,
+            "https://lab.org/log.csv",
+            assay_log_hash=f"sha256:{self.log_hash}"
+        )
+
+        task = self.contract.tasks[tid4]
+        self.assertEqual(task.status, "ESCALATED")
+        self.assertEqual(task.verdict, "ESCALATE")
+        self.assertEqual(task.confidence, 100)
+        self.assertIn("CRITICAL EVIDENCE INTEGRITY VIOLATION", task.reason)
+        self.assertIn("Mutable URL drift detected", task.reason)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
