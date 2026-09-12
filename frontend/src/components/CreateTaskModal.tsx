@@ -23,8 +23,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 }) => {
   const [taskId, setTaskId] = useState(`assay_${Date.now().toString().slice(-6)}`);
   const [assayName, setAssayName] = useState('Cas12a Cleavage Kinetic Replication Assay');
-  const [protocolUrl, setProtocolUrl] = useState('https://protocols.io/spec/crispr_cleavage.json');
-  const [protocolSpecHash, setProtocolSpecHash] = useState('');
+  const [protocolUrl, setProtocolUrl] = useState('https://raw.githubusercontent.com/tuannguyen1995/bio-intel-escrow-genlayer/main/README.md');
+  const [protocolSpecHash, setProtocolSpecHash] = useState('sha256:31cd38ee22043e9a5d00e2128385eeb0de686433932a165bf788975657e22bd0');
   const [toleranceCriteria, setToleranceCriteria] = useState('p-value < 0.01, R^2 > 0.98, CV < 5%');
   const [blacklistAnomalies, setBlacklistAnomalies] = useState('Negative control cleaved, sensor saturation, reagent degradation');
   const [escrowAmount, setEscrowAmount] = useState('100');
@@ -36,6 +36,21 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const handleComputeSha256 = async () => {
     if (!protocolUrl.trim()) return;
     try {
+      // Try fetching content to hash exact bytes; fallback to hashing URL string
+      try {
+        const res = await fetch(protocolUrl.trim());
+        if (res.ok) {
+          const text = await res.text();
+          const encoder = new TextEncoder();
+          const data = encoder.encode(text);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+          const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          setProtocolSpecHash(`sha256:${hashHex}`);
+          return;
+        }
+      } catch {
+        // Fallback to hashing URL string
+      }
       const encoder = new TextEncoder();
       const data = encoder.encode(protocolUrl.trim());
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -60,6 +75,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       return;
     }
 
+    const cleanHash = protocolSpecHash.trim();
+    if (!cleanHash) {
+      setError('Mandatory Evidence Anchoring: Immutable protocol specification hash commitment (SHA-256 or IPFS CID) is strictly required.');
+      return;
+    }
+
+    if (!cleanHash.startsWith('ipfs://')) {
+      const normHash = cleanHash.toLowerCase().replace('sha256:', '').trim();
+      if (normHash.length !== 64 || !/^[0-9a-f]{64}$/.test(normHash)) {
+        setError('Protocol spec hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.');
+        return;
+      }
+    }
+
     const parsedAmount = parseGEN(escrowAmount);
     if (parsedAmount <= 0n) {
       setError('Escrow bounty must be greater than 0 GEN');
@@ -72,7 +101,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         taskId: taskId.trim(),
         assayName: assayName.trim(),
         protocolUrl: protocolUrl.trim(),
-        protocolSpecHash: protocolSpecHash.trim(),
+        protocolSpecHash: cleanHash,
         toleranceCriteria: toleranceCriteria.trim(),
         blacklistAnomalies: blacklistAnomalies.trim(),
         escrowAmount: parsedAmount,
@@ -162,6 +191,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               <div className="flex items-center space-x-1.5 text-bio-cyan">
                 <ShieldCheck className="w-4 h-4" />
                 <span className="font-bold uppercase text-[11px]">Evidence Integrity: Immutable Hash Commitment</span>
+                <span className="px-1.5 py-0.2 rounded bg-bio-crimson/20 border border-bio-crimson/40 text-bio-crimson text-[9px] font-bold">REQUIRED</span>
               </div>
               <button
                 type="button"

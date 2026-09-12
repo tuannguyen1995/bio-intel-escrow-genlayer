@@ -1,6 +1,6 @@
 import { createClient, chains, createAccount } from 'genlayer-js';
 
-const CONTRACT_ADDRESS = '0x687E99e2F0C9851E4c2822730D47c897Da62978e';
+const CONTRACT_ADDRESS = '0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7';
 const TASK_ID = 'tynamy';
 const LAB_PK = '0x0000000000000000000000000000000000000000000000000000000000000000_ROTATED';
 
@@ -37,7 +37,7 @@ async function run() {
       logUrl,
       false,
       '',
-      '',
+      'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       'sig_lab_cert_9981',
       'LIMS_RAW_EXPORT',
       'AGILENT_CARY_60'

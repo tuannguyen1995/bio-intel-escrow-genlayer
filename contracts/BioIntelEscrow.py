@@ -128,7 +128,7 @@ class Contract(gl.Contract):
         assay_name: str,
         tolerance_criteria: str,
         blacklist_anomalies: str,
-        protocol_spec_hash: str = ""
+        protocol_spec_hash: str
     ) -> None:
         if task_id in self.tasks:
             raise UserError(f"Assay task ID {task_id} already exists")
@@ -138,6 +138,16 @@ class Contract(gl.Contract):
             raise UserError("Escrow bounty must be strictly positive")
         if not protocol_url.startswith("http") and not protocol_url.startswith("ipfs://"):
             raise UserError("Valid protocol specification HTTP/HTTPS or IPFS URL required")
+
+        # Mandatory Immutable Evidence Anchoring:
+        # A committed content snapshot digest (SHA-256 or IPFS CID) is strictly required.
+        clean_spec_hash = protocol_spec_hash.strip()
+        if not clean_spec_hash:
+            raise UserError("Mandatory evidence anchoring: protocol_spec_hash cannot be empty. An immutable SHA-256 digest or IPFS CID snapshot commitment is strictly required.")
+        if not clean_spec_hash.startswith("ipfs://"):
+            normalized_spec_hash = clean_spec_hash.lower().replace("sha256:", "").strip()
+            if len(normalized_spec_hash) != 64 or not all(c in "0123456789abcdef" for c in normalized_spec_hash):
+                raise UserError("Protocol specification hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.")
 
         caller = str(gl.message.sender_address).lower()
         
@@ -149,7 +159,7 @@ class Contract(gl.Contract):
             appeal_bond=bigint(0),
             status="OPEN",
             protocol_url=protocol_url.strip(),
-            protocol_spec_hash=protocol_spec_hash.strip(),
+            protocol_spec_hash=clean_spec_hash,
             assay_log_url="",
             assay_log_hash="",
             assay_name=assay_name.strip(),
@@ -212,15 +222,27 @@ class Contract(gl.Contract):
         if task.status not in ["IN_PROGRESS", "NEEDS_REVISION"]:
             raise UserError("Task is not ready for telemetry submission")
         
-        if not is_zk_mode and not assay_log_url.startswith("http") and not assay_log_url.startswith("ipfs://"):
-            raise UserError("Valid telemetry log HTTP/HTTPS or IPFS URL required in standard mode")
-        if is_zk_mode and not zk_proof_hash:
-            raise UserError("ZK proof hash required in ZK compliance mode")
+        # Mandatory Immutable Evidence Anchoring:
+        clean_zk_hash = zk_proof_hash.strip()
+        clean_log_hash = assay_log_hash.strip()
+
+        if is_zk_mode:
+            if not clean_zk_hash:
+                raise UserError("Mandatory evidence anchoring: zk_proof_hash is strictly required in ZK compliance mode.")
+        else:
+            if not assay_log_url.startswith("http") and not assay_log_url.startswith("ipfs://"):
+                raise UserError("Valid telemetry log HTTP/HTTPS or IPFS URL required in standard mode")
+            if not clean_log_hash:
+                raise UserError("Mandatory evidence anchoring: assay_log_hash cannot be empty. An immutable SHA-256 digest or IPFS CID snapshot commitment is strictly required.")
+            if not clean_log_hash.startswith("ipfs://"):
+                normalized_log_hash = clean_log_hash.lower().replace("sha256:", "").strip()
+                if len(normalized_log_hash) != 64 or not all(c in "0123456789abcdef" for c in normalized_log_hash):
+                    raise UserError("Assay telemetry log hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.")
 
         task.assay_log_url = assay_log_url.strip()
-        task.assay_log_hash = assay_log_hash.strip()
+        task.assay_log_hash = clean_log_hash
         task.is_zk_mode = is_zk_mode
-        task.zk_proof_hash = zk_proof_hash.strip()
+        task.zk_proof_hash = clean_zk_hash
         task.lab_provenance_sig = lab_provenance_sig.strip()
         task.provenance_type = provenance_type.strip()
         task.instrument_id = instrument_id.strip()
@@ -254,15 +276,15 @@ class Contract(gl.Contract):
                     "reason": f"Protocol fetch failed: {str(e)}"
                 }
 
-            # Cryptographic Evidence Integrity Check: Protocol Specification
-            if proto_hash and not proto_hash.startswith("ipfs://"):
+            # Mandatory Cryptographic Evidence Integrity Check: Protocol Specification
+            if not proto_hash.startswith("ipfs://"):
                 clean_proto = proto_hash.lower().replace("sha256:", "").strip()
                 computed_proto = hashlib.sha256(p_text.encode("utf-8")).hexdigest().lower()
-                if clean_proto and computed_proto != clean_proto:
+                if computed_proto != clean_proto:
                     return {
                         "verdict": "ESCALATE", "confidence": 100, 
                         "statistician_vote": "ESCALATE", "biochemist_vote": "ESCALATE", "contamination_vote": "ESCALATE",
-                        "reason": f"Protocol spec hash mismatch! Expected {clean_proto}, got {computed_proto}. Evidence integrity violation detected."
+                        "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION: Protocol spec hash mismatch! Expected committed snapshot {clean_proto}, got rendered content {computed_proto}. Mutable URL drift detected."
                     }
 
             l_text = ""
@@ -283,15 +305,15 @@ class Contract(gl.Contract):
                         "reason": f"Telemetry log fetch failed: {str(e)}"
                     }
 
-                # Cryptographic Evidence Integrity Check: Telemetry Data
-                if log_hash and not log_hash.startswith("ipfs://"):
+                # Mandatory Cryptographic Evidence Integrity Check: Telemetry Data
+                if not log_hash.startswith("ipfs://"):
                     clean_log = log_hash.lower().replace("sha256:", "").strip()
                     computed_log = hashlib.sha256(l_text.encode("utf-8")).hexdigest().lower()
-                    if clean_log and computed_log != clean_log:
+                    if computed_log != clean_log:
                         return {
                             "verdict": "REFUND", "confidence": 100, 
                             "statistician_vote": "REFUND", "biochemist_vote": "REFUND", "contamination_vote": "REFUND",
-                            "reason": f"Assay log hash mismatch! Expected {clean_log}, got {computed_log}. Telemetry tampering detected."
+                            "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION: Assay log hash mismatch! Expected committed snapshot {clean_log}, got rendered content {computed_log}. Telemetry tampering detected."
                         }
             else:
                 l_text = f"ZK Shielded Mode Active. Telemetry Hash: {zk_proof_hash}. Zero-Knowledge proof compliance validated off-chain."
@@ -508,6 +530,10 @@ BASELINE SPECIFICATION:
 
 TELEMETRY DATA / LOGS:
 {l_text}
+
+IMMUTABLE EVIDENCE COMMITMENTS:
+- Protocol Spec Snapshot Hash: {task.protocol_spec_hash}
+- Telemetry Data Snapshot Hash: {task.assay_log_hash if not task.is_zk_mode else task.zk_proof_hash}
 
 LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
 - Provenance Type: {prov_type}

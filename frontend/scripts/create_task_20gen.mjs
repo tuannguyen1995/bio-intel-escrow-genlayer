@@ -1,6 +1,6 @@
 import { createClient, chains, createAccount } from 'genlayer-js';
 
-const CONTRACT_ADDRESS = '0x687E99e2F0C9851E4c2822730D47c897Da62978e';
+const CONTRACT_ADDRESS = '0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7';
 const TASK_ID = `assay_cas12a_${Date.now().toString().slice(-4)}`;
 const SPONSOR_PK = '0x0000000000000000000000000000000000000000000000000000000000000000_ROTATED';
 

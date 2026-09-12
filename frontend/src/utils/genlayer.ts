@@ -1,6 +1,6 @@
 import { AssayTask } from '../types/escrow';
 
-export const CANONICAL_CONTRACT_ADDRESS = "0x687E99e2F0C9851E4c2822730D47c897Da62978e";
+export const CANONICAL_CONTRACT_ADDRESS = "0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7";
 export const DEFAULT_CONTRACT_ADDRESS = CANONICAL_CONTRACT_ADDRESS;
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
@@ -88,7 +88,7 @@ export async function createAssayTaskOnChain(params: {
   assayName: string;
   toleranceCriteria: string;
   blacklistAnomalies: string;
-  protocolSpecHash?: string;
+  protocolSpecHash: string;
   escrowAmount: bigint;
   userAddress: string;
   contractAddress?: string;
@@ -117,7 +117,7 @@ export async function createAssayTaskOnChain(params: {
       params.assayName,
       params.toleranceCriteria,
       params.blacklistAnomalies,
-      params.protocolSpecHash || ""
+      params.protocolSpecHash
     ],
     value: params.escrowAmount,
   });
