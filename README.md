@@ -45,7 +45,8 @@ BioIntelEscrow/
 ├── contracts/
 │   └── BioIntelEscrow.py            # Intelligent GenLayer smart contract in Python
 ├── tests/
-│   └── test_bio_intel_escrow.py     # GenLayer VM runtime mock unit test suite
+│   ├── test_bio_intel_escrow.py     # GenLayer VM runtime mock unit test suite
+│   └── test_direct_mode_consensus.py # Dedicated Direct Mode / Studio consensus simulation
 ├── scripts/
 │   └── verify_contract.py           # Contract verification & test runner script
 ├── frontend/                        # DeSci Cyber-Laboratory HUD UI
@@ -93,12 +94,12 @@ Expected output:
 [OK] Test suite detected: tests\test_bio_intel_escrow.py
 [OK] Contract Python syntax validation: PASSED
 
---- Running Unit Test Suite ---
-..............
-Ran 14 tests in 0.003s
+--- Running Unit Test & Direct Mode Consensus Suites ---
+.................
+Ran 17 tests in 0.005s
 OK
 ======================================================================
- SUCCESS: All BioIntelEscrow smart contract tests passed!
+ SUCCESS: All 17 BioIntelEscrow tests (Core & Direct Mode) passed!
 ======================================================================
 ```
 

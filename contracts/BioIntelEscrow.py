@@ -158,7 +158,7 @@ class Contract(gl.Contract):
         if bal <= bigint(0):
             raise UserError("No withdrawable balance available")
         self.withdrawable_balances[caller] = bigint(0)
-        gl.get_contract_at(Address(caller)).emit_transfer(value=u256(bal))
+        gl.get_contract_at(Address(caller)).emit_transfer(value=bal)
 
     @gl.public.view
     def get_withdrawable_balance(self, account: str) -> str:
