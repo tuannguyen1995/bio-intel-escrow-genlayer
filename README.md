@@ -2,7 +2,6 @@
 
 [![Live Demo](https://img.shields.io/badge/Vercel_Live_App-BioIntelEscrow-000000?style=for-the-badge&logo=vercel)](https://bio-intel-escrow-genlayer.vercel.app)
 [![GenLayer Contract Standard](https://img.shields.io/badge/GenLayer-v0.2.18-10B981?style=for-the-badge&logo=python)](https://genlayer.com)
-[![GenLayer Score](https://img.shields.io/badge/GenLayer_Score-5.0_Verified-06B6D4?style=for-the-badge)](https://genlayer.com)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
 
@@ -18,14 +17,14 @@
 
 ### 1. Evidence Integrity: Immutable Hash Commitments & Content-Addressed Snapshots
 - **Immutable State Proofs**: To prevent mutable HTTP/HTTPS URL drift or post-submission tampering, both the baseline protocol (`protocol_spec_hash`) and the replication telemetry (`assay_log_hash`) require an immutable content hash (SHA-256 or IPFS CID) committed on-chain.
-- **Validator Snapshot Comparison**: GenLayer validator nodes verify rendered content against the committed digest. If any hash mismatch or payload tampering is detected, consensus triggers `ESCALATE` with 100% confidence.
+- **Validator Snapshot Comparison**: GenLayer validator nodes verify rendered content against the committed digest under the Equivalence Principle. If any hash mismatch or payload tampering is detected, consensus triggers `ESCALATE` (or `REFUND`) with 100% confidence.
 
-### 2. Laboratory Provenance & Hardware Instrument Attestation
-- **Physical Provenance Tracking**: Rather than making unrealistic "trustless wet-lab execution" claims, the protocol authenticates physical provenance via:
-  - **LIMS Export Audits**: Cryptographic digest of raw LIMS database runs.
-  - **Hardware Instrument Attestations**: Spectrometer hardware serial IDs (e.g. `Biotek-Synergy-H1-SN48821`).
-  - **Certified Laboratory Signatures**: ECDSA / Ed25519 signature from certified replication laboratories (`lab_provenance_sig`).
-- **Multi-Agent Evaluation**: The on-chain Multi-Agent Board (Statistician, Biochemist, and Contamination Guard) verifies both quantitative kinetic curves and hardware provenance authenticity.
+### 2. Submitted Laboratory Provenance Metadata
+- **Provenance Transparency**: Accommodates submitted laboratory and instrument metadata without overstating hardware claims:
+  - **LIMS Export Metadata**: Digest of raw LIMS database export runs.
+  - **Instrument Hardware Metadata**: Self-reported spectrometer serial IDs (e.g. `Biotek-Synergy-H1-SN48821`).
+  - **Laboratory Metadata Signature**: Self-reported ECDSA signature from participating replication laboratories (`lab_provenance_sig`).
+- **GenLayer Optimistic Democracy + Equivalence Principle Consensus**: Consensus validators evaluate evidence consistency against quantitative tolerances and submitted provenance metadata.
 
 ### 3. Safe Settlement Recovery: Pull-over-Push Withdrawable Credits Vault
 - **Fault-Tolerant Settlement**: Solves the critical risk of locked funds or failed contract transfers during payout/refund settlement.
@@ -95,12 +94,11 @@ Expected output:
 [OK] Contract Python syntax validation: PASSED
 
 --- Running Unit Test Suite ---
-..........
-Ran 10 tests in 0.003s
+..............
+Ran 14 tests in 0.003s
 OK
 ======================================================================
  SUCCESS: All BioIntelEscrow smart contract tests passed!
- GenLayer Score 5 Standard: VERIFIED
 ======================================================================
 ```
 

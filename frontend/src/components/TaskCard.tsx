@@ -109,7 +109,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           )}
 
           {task.instrument_id && (
-            <span className="px-2 py-0.5 rounded bg-bio-emerald/10 border border-bio-emerald/40 text-bio-emerald text-[10px] flex items-center gap-1 font-mono" title={`Hardware Attestation: ${task.instrument_id}`}>
+            <span className="px-2 py-0.5 rounded bg-bio-emerald/10 border border-bio-emerald/40 text-bio-emerald text-[10px] flex items-center gap-1 font-mono" title={`Submitted Provenance Metadata: ${task.instrument_id}`}>
               <CheckCircle2 className="w-3 h-3" />
               <span>{task.provenance_type || 'LIMS'}: {task.instrument_id}</span>
             </span>

@@ -40,7 +40,6 @@ def main():
     if result.returncode == 0:
         print("=" * 70)
         print(" SUCCESS: All BioIntelEscrow smart contract tests passed!")
-        print(" GenLayer Score 5 Standard: VERIFIED")
         print("=" * 70)
     else:
         print("[ERROR] Test suite failed.")

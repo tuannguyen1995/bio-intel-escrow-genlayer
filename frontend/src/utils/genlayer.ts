@@ -82,6 +82,21 @@ export async function ensureGenLayerNetwork(): Promise<void> {
   }
 }
 
+export async function waitForFinalizedAndFinishedWithReturn(client: any, hash: `0x${string}` | string): Promise<any> {
+  const { TransactionStatus, ExecutionResult } = await import('genlayer-js/types');
+  const receipt = await client.waitForTransactionReceipt({
+    hash: hash as `0x${string}`,
+    status: TransactionStatus.FINALIZED,
+  });
+
+  if (receipt.txExecutionResultName !== ExecutionResult.FINISHED_WITH_RETURN) {
+    throw new Error(
+      `Transaction finalized with unsuccessful execution status: ${receipt.txExecutionResultName || 'FAILED'}. State was not updated.`
+    );
+  }
+  return receipt;
+}
+
 export async function createAssayTaskOnChain(params: {
   taskId: string;
   protocolUrl: string;
@@ -122,7 +137,7 @@ export async function createAssayTaskOnChain(params: {
     value: params.escrowAmount,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -154,7 +169,7 @@ export async function acceptAssayTaskOnChain(params: {
     value: params.stakeAmount,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -201,7 +216,7 @@ export async function submitAssayTelemetryOnChain(params: {
     value: 0n,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -234,7 +249,7 @@ export async function raiseDisputeOnChain(params: {
     value: params.appealBondValue,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -265,7 +280,7 @@ export async function finalizePayoutOnChain(params: {
     value: 0n,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -295,7 +310,7 @@ export async function withdrawCreditsOnChain(params: {
     value: 0n,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -326,7 +341,7 @@ export async function resolveDisputeViaRefereeOnChain(params: {
     value: 0n,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }
 
@@ -358,6 +373,6 @@ export async function resolveEscalationOnChain(params: {
     value: 0n,
   });
 
-  await client.waitForTransactionReceipt({ hash });
+  await waitForFinalizedAndFinishedWithReturn(client, hash);
   return hash;
 }

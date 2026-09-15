@@ -2,7 +2,11 @@ import { createClient, chains, createAccount } from 'genlayer-js';
 
 const CONTRACT_ADDRESS = '0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7';
 const TASK_ID = 'tynamy';
-const LAB_PK = '0x0000000000000000000000000000000000000000000000000000000000000000_ROTATED';
+const LAB_PK = process.env.LAB_PRIVATE_KEY || process.env.PRIVATE_KEY;
+if (!LAB_PK) {
+  console.error("Please provide LAB_PRIVATE_KEY or PRIVATE_KEY environment variable.");
+  process.exit(1);
+}
 
 async function run() {
   const labAccount = createAccount(LAB_PK);
