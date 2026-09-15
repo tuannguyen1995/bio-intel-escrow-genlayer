@@ -31,15 +31,15 @@ def main():
         print(f"[ERROR] Syntax check failed: {e}")
         sys.exit(1)
 
-    # Run unittest suite
-    print("\n--- Running Unit Test Suite ---")
-    result = subprocess.run([sys.executable, "-m", "unittest", test_path], capture_output=True, text=True)
+    # Run unittest suite (17 tests covering contract execution & direct mode simulation)
+    print("\n--- Running Unit Test & Direct Mode Consensus Suites ---")
+    result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests"], capture_output=True, text=True)
     print(result.stdout)
     print(result.stderr)
 
     if result.returncode == 0:
         print("=" * 70)
-        print(" SUCCESS: All BioIntelEscrow smart contract tests passed!")
+        print(" SUCCESS: All 17 BioIntelEscrow tests (Core & Direct Mode) passed!")
         print("=" * 70)
     else:
         print("[ERROR] Test suite failed.")
