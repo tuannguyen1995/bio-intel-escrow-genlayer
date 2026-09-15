@@ -81,7 +81,19 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       return;
     }
 
-    if (!cleanHash.startsWith('ipfs://')) {
+    if (cleanHash.startsWith('ipfs://') || cleanHash.startsWith('Qm') || cleanHash.startsWith('bafy')) {
+      const cid = cleanHash.replace('ipfs://', '').trim();
+      const isCidV0 = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(cid);
+      const isCidV1 = /^baf[a-z2-7]{45,65}$/.test(cid.toLowerCase());
+      if (!isCidV0 && !isCidV1) {
+        setError('Invalid IPFS CID format. Must be a valid CIDv0 (Qm... 46 chars) or CIDv1 (bafy...).');
+        return;
+      }
+      if (!protocolUrl.startsWith(`ipfs://${cid}`) && !protocolUrl.includes(`/ipfs/${cid}`)) {
+        setError(`URL binding violation: Protocol URL must bind to the committed IPFS CID (${cid}).`);
+        return;
+      }
+    } else {
       const normHash = cleanHash.toLowerCase().replace('sha256:', '').trim();
       if (normHash.length !== 64 || !/^[0-9a-f]{64}$/.test(normHash)) {
         setError('Protocol spec hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.');

@@ -77,7 +77,19 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
         setError('Mandatory Evidence Anchoring: Immutable telemetry log hash commitment (SHA-256 or IPFS CID) is strictly required.');
         return;
       }
-      if (!cleanLogHash.startsWith('ipfs://')) {
+      if (cleanLogHash.startsWith('ipfs://') || cleanLogHash.startsWith('Qm') || cleanLogHash.startsWith('bafy')) {
+        const cid = cleanLogHash.replace('ipfs://', '').trim();
+        const isCidV0 = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(cid);
+        const isCidV1 = /^baf[a-z2-7]{45,65}$/.test(cid.toLowerCase());
+        if (!isCidV0 && !isCidV1) {
+          setError('Invalid IPFS CID format. Must be a valid CIDv0 (Qm... 46 chars) or CIDv1 (bafy...).');
+          return;
+        }
+        if (!assayLogUrl.startsWith(`ipfs://${cid}`) && !assayLogUrl.includes(`/ipfs/${cid}`)) {
+          setError(`URL binding violation: Telemetry URL must bind to the committed IPFS CID (${cid}).`);
+          return;
+        }
+      } else {
         const normHash = cleanLogHash.toLowerCase().replace('sha256:', '').trim();
         if (normHash.length !== 64 || !/^[0-9a-f]{64}$/.test(normHash)) {
           setError('Assay telemetry log hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.');
@@ -214,11 +226,11 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
             />
           </div>
 
-          {/* Provenance & Hardware Attestation */}
+          {/* Submitted Provenance Metadata */}
           <div className="p-3 bg-bio-dark/70 border border-bio-emerald/40 rounded-lg space-y-3">
             <div className="flex items-center space-x-1.5 text-bio-emerald font-bold text-[11px] uppercase">
               <Cpu className="w-4 h-4" />
-              <span>Laboratory Provenance & Hardware Attestation</span>
+              <span>Submitted Laboratory Provenance Metadata (Unattested)</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -228,9 +240,9 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
                   onChange={(e) => setProvenanceType(e.target.value)}
                   className="w-full bg-bio-dark border border-bio-border rounded px-2.5 py-1.5 text-slate-200 text-[11px] focus:border-bio-emerald focus:outline-none"
                 >
-                  <option value="LIMS_RAW_EXPORT">LIMS Export Audit</option>
-                  <option value="SPECTROMETER_HARDWARE_ATTESTATION">Hardware Attestation</option>
-                  <option value="CERTIFIED_LAB_SIG">Certified Lab Signature</option>
+                  <option value="LIMS_RAW_EXPORT">LIMS Export Metadata</option>
+                  <option value="SPECTROMETER_HARDWARE_ATTESTATION">Hardware Serial Metadata</option>
+                  <option value="CERTIFIED_LAB_SIG">Self-Reported Lab Signature</option>
                 </select>
               </div>
               <div>
@@ -245,20 +257,20 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
               </div>
             </div>
             <div>
-              <label className="text-slate-400 uppercase text-[10px] block mb-1">Lab / Hardware Attestation Signature</label>
+              <label className="text-slate-400 uppercase text-[10px] block mb-1">Lab Signature Metadata (Self-Reported)</label>
               <input
                 type="text"
                 value={labProvenanceSig}
                 onChange={(e) => setLabProvenanceSig(e.target.value)}
-                placeholder="0x... ECDSA signature from registered laboratory device"
+                placeholder="0x... ECDSA signature metadata from replication lab"
                 className="w-full bg-bio-dark border border-bio-border rounded px-2.5 py-1.5 text-slate-200 text-[11px] focus:border-bio-emerald focus:outline-none font-mono"
               />
             </div>
           </div>
 
           <div className="p-3 bg-bio-dark/70 rounded border border-bio-border text-slate-400 text-[11px]">
-            <span className="text-bio-cyan font-bold uppercase block mb-1">GenVM Consensus Trigger:</span>
-            Multi-Agent AI validators evaluate kinetic curve linearity, p-values, immutable content hash, and laboratory provenance attestations on-chain.
+            <span className="text-bio-cyan font-bold uppercase block mb-1">GenLayer Consensus Trigger:</span>
+            GenLayer validators evaluate kinetic curve linearity, p-values, immutable content hash, and submitted provenance metadata under the Optimistic Democracy + Equivalence Principle consensus mechanism.
           </div>
 
           <div className="pt-2 flex justify-end space-x-3 border-t border-bio-border">
@@ -275,7 +287,7 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
               className="px-5 py-2 rounded bg-bio-cyan text-bio-dark font-bold hover:opacity-90 transition shadow-glow-cyan flex items-center space-x-1.5"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{loading ? "Submitting Telemetry..." : "Submit to Multi-Agent Board"}</span>
+              <span>{loading ? "Submitting Telemetry..." : "Submit for GenVM Consensus"}</span>
             </button>
           </div>
         </form>

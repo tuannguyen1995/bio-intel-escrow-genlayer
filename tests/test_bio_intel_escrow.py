@@ -333,7 +333,8 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         task = self.contract.tasks[tid3]
         # Should be caught by Python SHA-256 and flagged REFUND
         self.assertEqual(task.verdict, "REFUND")
-        self.assertIn("Assay log hash mismatch", task.reason)
+        self.assertIn("CRITICAL EVIDENCE INTEGRITY VIOLATION", task.reason)
+        self.assertIn("hash mismatch", task.reason)
 
     def test_07_empty_protocol_spec_hash_strictly_reverts(self):
         """Contract strictly rejects task creation if protocol_spec_hash is empty -> MUST REVERT"""
@@ -412,7 +413,158 @@ class TestBioIntelEscrowExecutionSuite(unittest.TestCase):
         self.assertEqual(task.verdict, "ESCALATE")
         self.assertEqual(task.confidence, 100)
         self.assertIn("CRITICAL EVIDENCE INTEGRITY VIOLATION", task.reason)
-        self.assertIn("Mutable URL drift detected", task.reason)
+        self.assertIn("Mutable content drift detected", task.reason)
+
+    def test_11_ipfs_cid_validation_and_url_binding(self):
+        """IPFS model must validate CID syntax and strictly enforce URL binding to committed CID"""
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+
+        # 1. Invalid CID format (too short / bad chars) MUST REVERT
+        with self.assertRaises(MockUserError):
+            self.contract.create_assay_task(
+                "task_bad_cid",
+                "ipfs://QmTooShort",
+                "Assay", "Tol", "Ano",
+                protocol_spec_hash="ipfs://QmTooShort"
+            )
+
+        # 2. Valid CID but unbound mutable HTTP URL MUST REVERT with URL binding violation
+        valid_cid = "QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco"
+        with self.assertRaises(MockUserError):
+            self.contract.create_assay_task(
+                "task_unbound_url",
+                "https://mutable-website.com/spec.json",  # does not contain CID!
+                "Assay", "Tol", "Ano",
+                protocol_spec_hash=f"ipfs://{valid_cid}"
+            )
+
+        # 3. Valid CID and properly bound IPFS gateway URL MUST SUCCEED
+        self.contract.create_assay_task(
+            "task_valid_ipfs",
+            f"https://ipfs.io/ipfs/{valid_cid}",
+            "Assay", "Tol", "Ano",
+            protocol_spec_hash=f"ipfs://{valid_cid}"
+        )
+        self.assertIn("task_valid_ipfs", self.contract.tasks)
+        self.assertEqual(self.contract.tasks["task_valid_ipfs"].protocol_spec_hash, f"ipfs://{valid_cid}")
+
+    def test_12_evidence_drift_during_dispute_resolution_refuses_evaluation(self):
+        """During dispute resolution, if evidence bytes drift from committed snapshot -> referee halts immediately without LLM eval"""
+        tid_disp = "task_dispute_drift"
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        self.contract.create_assay_task(
+            tid_disp,
+            "https://protocols.io/spec.json",
+            "Cas12a Assay", "Tol", "Ano",
+            protocol_spec_hash=f"sha256:{self.proto_hash}"
+        )
+
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(200)
+        self.contract.accept_assay_task(tid_disp)
+
+        # Render valid content during initial submission
+        self.gl.nondet.web.render = lambda url, mode="text": self.proto_content if "spec" in url else self.log_content
+        self.gl.nondet.exec_prompt = lambda prompt, response_format="json": {
+            "verdict": "APPROVED",
+            "confidence": 95,
+            "reason": "All tolerances met"
+        }
+
+        self.contract.submit_assay_telemetry(
+            tid_disp,
+            "https://lab.org/log.csv",
+            assay_log_hash=f"sha256:{self.log_hash}"
+        )
+
+        # Sponsor files dispute within cooling-off period
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(100) # 10% appeal bond
+        self.contract.raise_dispute(tid_disp, reason="Suspected background blanking drift")
+        self.assertEqual(self.contract.tasks[tid_disp].status, "DISPUTED")
+
+        # Now simulate evidence drift: someone tampered with telemetry log URL before referee evaluates!
+        tampered_telemetry = "TAMPERED TELEMETRY LOGS INJECTED AFTER DISPUTE"
+        self.gl.nondet.web.render = lambda url, mode="text": self.proto_content if "spec" in url else tampered_telemetry
+
+        # LLM mock should NEVER be called on drifted bytes!
+        llm_called = False
+        def mock_prompt_trap(prompt, response_format="json"):
+            nonlocal llm_called
+            llm_called = True
+            return {"verdict": "RELEASE", "reason": "Evaluated tampered bytes"}
+        self.gl.nondet.exec_prompt = mock_prompt_trap
+
+        # Run referee dispute resolution
+        self.contract.resolve_dispute_via_referee(tid_disp)
+
+        # Assert referee refused to evaluate tampered bytes with LLM
+        self.assertFalse(llm_called, "Referee must NEVER evaluate bytes that fail the original commitment!")
+        task = self.contract.tasks[tid_disp]
+        self.assertEqual(task.status, "CLOSED")
+        self.assertIn("CRITICAL EVIDENCE INTEGRITY VIOLATION DURING DISPUTE", task.reason)
+        # Slashed and refunded to sponsor
+        self.assertGreater(self.contract.withdrawable_balances.get(self.sponsor.lower(), 0), 0)
+
+    def test_13_validator_disagreement_consensus_failure(self):
+        """Direct Mode / Studio test: Equivalence Principle divergence between leader and validator triggers consensus disagreement"""
+        tid_neq = "task_consensus_divergence"
+        self.gl.message.sender_address = self.sponsor
+        self.gl.message.value = MockBigInt(1000)
+        self.contract.create_assay_task(
+            tid_neq,
+            "https://protocols.io/spec.json",
+            "Cas12a Assay", "Tol", "Ano",
+            protocol_spec_hash=f"sha256:{self.proto_hash}"
+        )
+
+        self.gl.message.sender_address = self.lab
+        self.gl.message.value = MockBigInt(200)
+        self.contract.accept_assay_task(tid_neq)
+
+        self.gl.nondet.web.render = lambda url, mode="text": self.proto_content if "spec" in url else self.log_content
+        
+        # Leader votes APPROVED, but when validator runs it votes REFUND -> Equivalence Principle divergence
+        call_count = 0
+        def divergent_prompt(prompt, response_format="json"):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return {"verdict": "APPROVED", "confidence": 90, "reason": "Leader says pass"}
+            else:
+                return {"verdict": "REFUND", "confidence": 90, "reason": "Validator says fail"}
+        self.gl.nondet.exec_prompt = divergent_prompt
+
+        # Consensus disagreement must raise MockUserError
+        with self.assertRaises(MockUserError):
+            self.contract.submit_assay_telemetry(
+                tid_neq,
+                "https://lab.org/log.csv",
+                assay_log_hash=f"sha256:{self.log_hash}"
+            )
+
+    def test_14_withdrawal_settlement_pull_pattern(self):
+        """Direct Mode / Studio test: Pull-over-Push safe withdrawal settlement ledger"""
+        # Set withdrawable balance for sponsor
+        test_user = MockAddress("0xwithdrawer_user")
+        self.contract._credit_balance(test_user, MockBigInt(500))
+        self.assertEqual(self.contract.get_withdrawable_balance(test_user), "500")
+
+        # Withdraw credits successfully
+        self.gl.message.sender_address = test_user
+        self.contract.withdraw_credits()
+
+        # Balance must now be zero and transfer emitted
+        self.assertEqual(self.contract.get_withdrawable_balance(test_user), "0")
+        self.assertEqual(len(self.gl.transfers), 1)
+        self.assertEqual(self.gl.transfers[0]["to"], test_user.lower())
+        self.assertEqual(self.gl.transfers[0]["value"], 500)
+
+        # Subsequent withdrawal must revert because balance is zero
+        with self.assertRaises(MockUserError):
+            self.contract.withdraw_credits()
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

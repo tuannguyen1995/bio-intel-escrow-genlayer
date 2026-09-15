@@ -2,7 +2,11 @@ import { createClient, chains, createAccount } from 'genlayer-js';
 
 const CONTRACT_ADDRESS = '0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7';
 const TASK_ID = `assay_cas12a_${Date.now().toString().slice(-4)}`;
-const SPONSOR_PK = '0xfb1fbd9ca13826ee88f6b2971640910e669a277de8492be2817b21f8df7aabd2';
+const SPONSOR_PK = process.env.SPONSOR_PRIVATE_KEY || process.env.PRIVATE_KEY;
+if (!SPONSOR_PK) {
+  console.error("Please provide SPONSOR_PRIVATE_KEY or PRIVATE_KEY environment variable.");
+  process.exit(1);
+}
 
 async function main() {
   const sponsorAccount = createAccount(SPONSOR_PK);

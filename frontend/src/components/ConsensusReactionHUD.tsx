@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Binary } from 'lucide-react';
+import { Cpu, ShieldCheck, Activity, AlertTriangle, CheckCircle, Flame, Binary, Dna, ShieldAlert } from 'lucide-react';
 import { AssayTask } from '../types/escrow';
 
 interface ConsensusReactionHUDProps {
@@ -75,7 +75,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="font-mono font-bold text-sm text-slate-100 uppercase tracking-wide flex items-center gap-1.5">
-                Consensus Reaction HUD — Multi-Agent Board
+                Consensus Reaction HUD — Optimistic Democracy + Eq Principle
                 {task.is_zk_mode && (
                   <span className="flex items-center gap-1 bg-bio-emerald/15 border border-bio-emerald/30 text-bio-emerald text-[9px] px-1.5 py-0.2 rounded font-mono lowercase">
                     <ShieldCheck className="w-3 h-3" /> zk-shielded
@@ -87,7 +87,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
               </span>
             </div>
             <p className="text-xs font-mono text-slate-400">
-              Evaluated via 3 Independent Scientific LLM Agents • Confidence Threshold: 65% Min
+              GenLayer Validator Consensus • Equivalence Principle • Threshold: 65% Min
             </p>
           </div>
         </div>
@@ -104,7 +104,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
         {/* Agent 1: Statistician */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">1. Statistician Agent</span>
+            <span className="uppercase text-[10px]">1. Statistician Metric</span>
             <Activity className="w-3.5 h-3.5 text-bio-cyan" />
           </div>
           <p className={`text-lg font-bold ${getVoteColor(statisticianVote)}`}>{statisticianVote}</p>
@@ -114,24 +114,24 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
           <span className="text-[9px] text-slate-500 mt-1 block">Validates R², p-value, drift</span>
         </div>
 
-        {/* Agent 2: Biochemist Expert */}
+        {/* Agent 2: Biochemist */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-            <span className="uppercase text-[10px]">2. Biochemist Agent</span>
-            <Binary className="w-3.5 h-3.5 text-bio-emerald" />
+            <span className="uppercase text-[10px]">2. Biochemist Metric</span>
+            <Dna className="w-3.5 h-3.5 text-bio-emerald" />
           </div>
           <p className={`text-lg font-bold ${getVoteColor(biochemistVote)}`}>{biochemistVote}</p>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
             <div className={`h-full rounded-full bg-bio-emerald`} style={{ width: getVoteBarWidth(biochemistVote) }}></div>
           </div>
-          <span className="text-[9px] text-slate-500 mt-1 block">Validates chemistry setup</span>
+          <span className="text-[9px] text-slate-500 mt-1 block">Assesses reagent kinetics</span>
         </div>
 
         {/* Agent 3: Contamination Guard */}
         <div className="bg-bio-dark p-3.5 rounded-lg border border-bio-border">
           <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
             <span className="uppercase text-[10px]">3. Contamination Guard</span>
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <ShieldAlert className="w-3.5 h-3.5 text-bio-amber" />
           </div>
           <p className={`text-lg font-bold ${getVoteColor(contaminationVote)}`}>{contaminationVote}</p>
           <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
@@ -175,10 +175,10 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
         <div className="bg-bio-dark/70 border border-bio-border p-2.5 rounded-lg flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Cpu className="w-4 h-4 text-bio-emerald" />
-            <span className="text-[11px] text-slate-300 font-bold uppercase">Hardware / LIMS Provenance:</span>
+            <span className="text-[11px] text-slate-300 font-bold uppercase">Submitted Provenance Metadata:</span>
           </div>
           <span className="text-[10px] text-bio-emerald font-semibold">
-            {task.instrument_id ? `${task.provenance_type || 'LIMS'}: ${task.instrument_id}` : "Standard Instrument Log"}
+            {task.instrument_id ? `${task.provenance_type || 'Metadata'}: ${task.instrument_id}` : "Self-Reported Log"}
           </span>
         </div>
       </div>

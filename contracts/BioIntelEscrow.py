@@ -29,9 +29,9 @@ class AssayTask:
     disputed_at: bigint
     is_zk_mode: bool
     zk_proof_hash: str
-    lab_provenance_sig: str   # Provenance: cryptographic signature from lab key / instrument
-    provenance_type: str      # Provenance: LIMS_RAW_EXPORT, SPECTROMETER_HARDWARE_ATTESTATION, CERTIFIED_LAB_SIG
-    instrument_id: str        # Provenance: Instrument hardware model & serial number
+    lab_provenance_sig: str   # Submitted Provenance: optional self-reported lab signature (unattested metadata)
+    provenance_type: str      # Submitted Provenance: self-reported metadata type (LIMS_RAW_EXPORT, HARDWARE_SERIAL_METADATA, LAB_SIGNATURE_METADATA)
+    instrument_id: str        # Submitted Provenance: self-reported instrument hardware model & serial number (unattested metadata)
 
 class Contract(gl.Contract):
     platform_admin: str
@@ -103,6 +103,53 @@ class Contract(gl.Contract):
             verdict = "ESCALATE"
         return verdict
 
+    def _validate_and_normalize_evidence_hash(self, evidence_url: str, evidence_hash: str, label: str) -> str:
+        clean_hash = evidence_hash.strip()
+        if not clean_hash:
+            raise UserError(f"Mandatory evidence anchoring: {label} cannot be empty. An immutable SHA-256 digest or IPFS CID snapshot commitment is strictly required.")
+        
+        # IPFS CID Binding Validation:
+        if clean_hash.startswith("ipfs://") or clean_hash.startswith("Qm") or clean_hash.startswith("bafy"):
+            cid = clean_hash.replace("ipfs://", "").strip()
+            base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+            base32_chars = "abcdefghijklmnopqrstuvwxyz234567"
+            is_cidv0 = cid.startswith("Qm") and len(cid) == 46 and all(c in base58_chars for c in cid)
+            is_cidv1 = (cid.startswith("bafy") or cid.startswith("bafk")) and 50 <= len(cid) <= 65 and all(c in base32_chars for c in cid.lower())
+            if not (is_cidv0 or is_cidv1):
+                raise UserError(f"Invalid IPFS CID format in {label}. Must be a valid CIDv0 (Qm... 46 chars) or CIDv1 (bafy...).")
+            
+            # Enforce URL binding: evidence_url MUST point to this exact CID
+            clean_url = evidence_url.strip()
+            if not (clean_url.startswith(f"ipfs://{cid}") or f"/ipfs/{cid}" in clean_url):
+                raise UserError(f"URL binding violation: {label} commits to IPFS CID {cid}, but URL does not bind to this CID.")
+            return f"ipfs://{cid}"
+        
+        # SHA-256 Digest Validation:
+        normalized_hash = clean_hash.lower().replace("sha256:", "").strip()
+        if len(normalized_hash) != 64 or not all(c in "0123456789abcdef" for c in normalized_hash):
+            raise UserError(f"{label} must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.")
+        return f"sha256:{normalized_hash}"
+
+    def _verify_snapshot_integrity(self, rendered_text: str, expected_hash: str, evidence_url: str, label: str) -> tuple[bool, str]:
+        if not expected_hash:
+            return False, f"Missing expected snapshot hash for {label}"
+        
+        if expected_hash.startswith("ipfs://"):
+            cid = expected_hash.replace("ipfs://", "").strip()
+            clean_url = evidence_url.strip()
+            if not (clean_url.startswith(f"ipfs://{cid}") or f"/ipfs/{cid}" in clean_url):
+                return False, f"CRITICAL EVIDENCE INTEGRITY VIOLATION: {label} URL does not bind to committed IPFS CID {cid}."
+            if not rendered_text or len(rendered_text.strip()) == 0:
+                return False, f"CRITICAL EVIDENCE INTEGRITY VIOLATION: Rendered IPFS content for {label} is empty."
+            return True, "OK"
+        
+        clean_expected = expected_hash.lower().replace("sha256:", "").strip()
+        computed = hashlib.sha256(rendered_text.encode("utf-8")).hexdigest().lower()
+        if computed != clean_expected:
+            return False, f"CRITICAL EVIDENCE INTEGRITY VIOLATION: {label} hash mismatch! Expected committed snapshot {clean_expected}, got rendered content {computed}. Mutable content drift detected."
+        return True, "OK"
+
+
     @gl.public.write
     def withdraw_credits(self) -> None:
         """PULL settlement pattern: Allows beneficiaries to withdraw their settled payouts or refunds safely."""
@@ -139,15 +186,8 @@ class Contract(gl.Contract):
         if not protocol_url.startswith("http") and not protocol_url.startswith("ipfs://"):
             raise UserError("Valid protocol specification HTTP/HTTPS or IPFS URL required")
 
-        # Mandatory Immutable Evidence Anchoring:
-        # A committed content snapshot digest (SHA-256 or IPFS CID) is strictly required.
-        clean_spec_hash = protocol_spec_hash.strip()
-        if not clean_spec_hash:
-            raise UserError("Mandatory evidence anchoring: protocol_spec_hash cannot be empty. An immutable SHA-256 digest or IPFS CID snapshot commitment is strictly required.")
-        if not clean_spec_hash.startswith("ipfs://"):
-            normalized_spec_hash = clean_spec_hash.lower().replace("sha256:", "").strip()
-            if len(normalized_spec_hash) != 64 or not all(c in "0123456789abcdef" for c in normalized_spec_hash):
-                raise UserError("Protocol specification hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.")
+        # Mandatory Immutable Evidence Anchoring with IPFS CID & SHA-256 validation:
+        clean_spec_hash = self._validate_and_normalize_evidence_hash(protocol_url, protocol_spec_hash, "protocol_spec_hash")
 
         caller = str(gl.message.sender_address).lower()
         
@@ -224,20 +264,15 @@ class Contract(gl.Contract):
         
         # Mandatory Immutable Evidence Anchoring:
         clean_zk_hash = zk_proof_hash.strip()
-        clean_log_hash = assay_log_hash.strip()
 
         if is_zk_mode:
             if not clean_zk_hash:
                 raise UserError("Mandatory evidence anchoring: zk_proof_hash is strictly required in ZK compliance mode.")
+            clean_log_hash = ""
         else:
             if not assay_log_url.startswith("http") and not assay_log_url.startswith("ipfs://"):
                 raise UserError("Valid telemetry log HTTP/HTTPS or IPFS URL required in standard mode")
-            if not clean_log_hash:
-                raise UserError("Mandatory evidence anchoring: assay_log_hash cannot be empty. An immutable SHA-256 digest or IPFS CID snapshot commitment is strictly required.")
-            if not clean_log_hash.startswith("ipfs://"):
-                normalized_log_hash = clean_log_hash.lower().replace("sha256:", "").strip()
-                if len(normalized_log_hash) != 64 or not all(c in "0123456789abcdef" for c in normalized_log_hash):
-                    raise UserError("Assay telemetry log hash must be a valid 64-character SHA-256 hexadecimal digest or IPFS CID.")
+            clean_log_hash = self._validate_and_normalize_evidence_hash(assay_log_url, assay_log_hash, "assay_log_hash")
 
         task.assay_log_url = assay_log_url.strip()
         task.assay_log_hash = clean_log_hash
@@ -277,15 +312,13 @@ class Contract(gl.Contract):
                 }
 
             # Mandatory Cryptographic Evidence Integrity Check: Protocol Specification
-            if not proto_hash.startswith("ipfs://"):
-                clean_proto = proto_hash.lower().replace("sha256:", "").strip()
-                computed_proto = hashlib.sha256(p_text.encode("utf-8")).hexdigest().lower()
-                if computed_proto != clean_proto:
-                    return {
-                        "verdict": "ESCALATE", "confidence": 100, 
-                        "statistician_vote": "ESCALATE", "biochemist_vote": "ESCALATE", "contamination_vote": "ESCALATE",
-                        "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION: Protocol spec hash mismatch! Expected committed snapshot {clean_proto}, got rendered content {computed_proto}. Mutable URL drift detected."
-                    }
+            ok_proto, err_proto = self._verify_snapshot_integrity(p_text, proto_hash, proto_str, "protocol_spec_hash")
+            if not ok_proto:
+                return {
+                    "verdict": "ESCALATE", "confidence": 100, 
+                    "statistician_vote": "ESCALATE", "biochemist_vote": "ESCALATE", "contamination_vote": "ESCALATE",
+                    "reason": err_proto
+                }
 
             l_text = ""
             if not is_zk_mode:
@@ -306,21 +339,19 @@ class Contract(gl.Contract):
                     }
 
                 # Mandatory Cryptographic Evidence Integrity Check: Telemetry Data
-                if not log_hash.startswith("ipfs://"):
-                    clean_log = log_hash.lower().replace("sha256:", "").strip()
-                    computed_log = hashlib.sha256(l_text.encode("utf-8")).hexdigest().lower()
-                    if computed_log != clean_log:
-                        return {
-                            "verdict": "REFUND", "confidence": 100, 
-                            "statistician_vote": "REFUND", "biochemist_vote": "REFUND", "contamination_vote": "REFUND",
-                            "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION: Assay log hash mismatch! Expected committed snapshot {clean_log}, got rendered content {computed_log}. Telemetry tampering detected."
-                        }
+                ok_log, err_log = self._verify_snapshot_integrity(l_text, log_hash, log_str, "assay_log_hash")
+                if not ok_log:
+                    return {
+                        "verdict": "REFUND", "confidence": 100, 
+                        "statistician_vote": "REFUND", "biochemist_vote": "REFUND", "contamination_vote": "REFUND",
+                        "reason": err_log
+                    }
             else:
                 l_text = f"ZK Shielded Mode Active. Telemetry Hash: {zk_proof_hash}. Zero-Knowledge proof compliance validated off-chain."
 
             prompt = f"""
-You are a Multi-Agent AI Scientific Board on GenLayer evaluating replication evidence.
-Evaluate the biomolecular assay replication evidence against the baseline protocol specifications.
+You are a GenLayer Validator node operating under the Optimistic Democracy + Equivalence Principle Consensus Mechanism.
+Evaluate the biomolecular assay replication evidence against the baseline protocol specifications under the Equivalence Principle.
 
 ASSAY TITLE:
 {name_str}
@@ -329,13 +360,14 @@ BASELINE PROTOCOL SPECIFICATION:
 {p_text}
 
 EVIDENCE INTEGRITY & IMMUTABLE HASH COMMITMENTS:
-- Baseline Protocol Hash Committed by Sponsor: {proto_hash if proto_hash else 'NOT_COMMITTED'}
-- Telemetry Data Hash Committed by Lab: {log_hash if log_hash else 'NOT_COMMITTED'}
+- Baseline Protocol Snapshot Hash: {proto_hash if proto_hash else 'NOT_COMMITTED'}
+- Telemetry Data Snapshot Hash: {log_hash if log_hash else 'NOT_COMMITTED'}
 
-LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
+SUBMITTED LABORATORY PROVENANCE METADATA (UNATTESTED):
 - Provenance Type: {prov_type}
 - Instrument Model / ID: {inst_id if inst_id else 'UNSPECIFIED_DEVICE'}
-- Certified Lab Attestation Signature: {lab_sig if lab_sig else 'NONE'}
+- Self-Reported Lab Signature: {lab_sig if lab_sig else 'NONE'}
+- Notice: Laboratory and instrument provenance are self-reported metadata submitted by the lab and have not been attested by cryptographic hardware enclaves.
 
 STATISTICAL TOLERANCE CRITERIA:
 {tol_str}
@@ -346,16 +378,10 @@ BLACKLISTED ANOMALIES:
 TELEMETRY DATA / LOGS:
 {l_text}
 
-Please conduct an independent Peer-Review with 3 distinct scientific agent personas:
-1. STATISTICIAN AGENT: Evaluates R^2 linearity (>0.98), p-value significance (<0.01), CV (<5%), and kinetic curve fidelity.
-2. BIOCHEMIST EXPERT AGENT: Evaluates reagent stoichiometry, assay calibration, and laboratory methodology.
-3. CONTAMINATION GUARD AGENT: Evaluates negative control channels, cross-contamination, and baseline blanking.
-
-EVALUATION RULES:
+CONSENSUS EVALUATION RULES (Equivalence Principle):
 - If evidence integrity hash mismatch or tampering is suspected, vote ESCALATE with confidence 100.
-- If lab provenance attestation is missing or invalid, flag in reasoning.
-- Each agent must vote: APPROVED, PARTIAL, REFUND, or ESCALATE.
-- Overall verdict is the majority vote (at least 2 out of 3 agents agreeing).
+- If submitted provenance metadata exhibits critical contradictions, flag in reasoning.
+- Provide your evaluated verdict: APPROVED, PARTIAL, REFUND, or ESCALATE.
 
 Respond ONLY with valid JSON:
 {{
@@ -364,7 +390,7 @@ Respond ONLY with valid JSON:
   "contamination_vote": "APPROVED|PARTIAL|REFUND|ESCALATE",
   "verdict": "APPROVED|PARTIAL|REFUND|ESCALATE",
   "confidence": 0-100,
-  "reason": "Detailed multi-agent peer-review review summary assessing statistical, biochemical, contamination, and provenance integrity."
+  "reason": "Equivalence Principle validation summary assessing statistical tolerances, biochemical fidelity, and submitted provenance metadata."
 }}
 """
             res = gl.nondet.exec_prompt(prompt, response_format="json")
@@ -501,25 +527,51 @@ Respond ONLY with valid JSON:
         inst_id = task.instrument_id
         lab_sig = task.lab_provenance_sig
 
+        proto_hash = task.protocol_spec_hash
+        log_hash = task.assay_log_hash
+        is_zk = task.is_zk_mode
+
         def leader_referee_fn() -> dict:
             try:
                 p_res = gl.nondet.web.render(proto_str, mode="text")
                 p_text = str(p_res)
             except Exception as e:
-                p_text = f"Protocol fetch failed: {str(e)}"
+                return {
+                    "verdict": "REFUND",
+                    "reason": f"CRITICAL EVIDENCE DRIFT: Protocol specification fetch failed ({str(e)}). Bytes fail original commitment."
+                }
+
+            # Reuse exact immutable-evidence verifier: no referee may evaluate bytes that fail original commitments
+            ok_proto, err_proto = self._verify_snapshot_integrity(p_text, proto_hash, proto_str, "protocol_spec_hash")
+            if not ok_proto:
+                return {
+                    "verdict": "REFUND",
+                    "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION DURING DISPUTE: {err_proto}. Referee refuses to evaluate bytes that fail original commitment."
+                }
 
             l_text = ""
-            if not task.is_zk_mode:
+            if not is_zk:
                 try:
                     l_res = gl.nondet.web.render(log_str, mode="text")
                     l_text = str(l_res)
                 except Exception as e:
-                    l_text = f"Telemetry log fetch failed: {str(e)}"
+                    return {
+                        "verdict": "REFUND",
+                        "reason": f"CRITICAL EVIDENCE DRIFT: Telemetry log fetch failed ({str(e)}). Bytes fail original commitment."
+                    }
+
+                # Reuse exact immutable-evidence verifier: no referee may evaluate bytes that fail original commitments
+                ok_log, err_log = self._verify_snapshot_integrity(l_text, log_hash, log_str, "assay_log_hash")
+                if not ok_log:
+                    return {
+                        "verdict": "REFUND",
+                        "reason": f"CRITICAL EVIDENCE INTEGRITY VIOLATION DURING DISPUTE: {err_log}. Referee refuses to evaluate bytes that fail original commitment. Sponsor dispute upheld."
+                    }
             else:
                 l_text = f"ZK Shielded Compliance Mode. Hash: {task.zk_proof_hash}"
 
             prompt = f"""
-You are an Independent AI Scientific Referee on GenLayer.
+You are an Independent AI Scientific Referee on GenLayer operating under the Equivalence Principle.
 Evaluate the scientific dispute filed by the Sponsor against the Replication Lab.
 
 ASSAY TITLE:
@@ -532,13 +584,14 @@ TELEMETRY DATA / LOGS:
 {l_text}
 
 IMMUTABLE EVIDENCE COMMITMENTS:
-- Protocol Spec Snapshot Hash: {task.protocol_spec_hash}
-- Telemetry Data Snapshot Hash: {task.assay_log_hash if not task.is_zk_mode else task.zk_proof_hash}
+- Protocol Spec Snapshot Hash: {proto_hash}
+- Telemetry Data Snapshot Hash: {log_hash if not is_zk else task.zk_proof_hash}
 
-LABORATORY PROVENANCE & INSTRUMENT ATTESTATION:
+SUBMITTED LABORATORY PROVENANCE METADATA (UNATTESTED):
 - Provenance Type: {prov_type}
 - Instrument Model / ID: {inst_id}
-- Lab Attestation Signature: {lab_sig if lab_sig else 'NONE'}
+- Self-Reported Lab Signature: {lab_sig if lab_sig else 'NONE'}
+- Notice: Laboratory and instrument provenance are self-reported metadata submitted by the lab and have not been attested by cryptographic hardware enclaves.
 
 SPONSOR'S SCIENTIFIC DISPUTE REASON:
 {dispute_reason}
@@ -546,7 +599,7 @@ SPONSOR'S SCIENTIFIC DISPUTE REASON:
 DECISION FRAMEWORK:
 - If the Sponsor's dispute is valid (e.g. baseline blanking uncalibrated, genuine cross-contamination, primer-dimers in NTC wells):
   Respond: {{"verdict": "REFUND", "reason": "Detailed scientific evaluation upholding the dispute."}}
-- If the Sponsor's dispute is invalid (e.g. Lab performed the assay correctly, deviation is within tolerances, valid hardware attestation):
+- If the Sponsor's dispute is invalid (e.g. Lab performed the assay correctly, deviation is within tolerances):
   Respond: {{"verdict": "RELEASE", "reason": "Detailed scientific evaluation rejecting the dispute."}}
 
 Respond ONLY with valid JSON:
