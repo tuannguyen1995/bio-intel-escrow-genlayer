@@ -1,6 +1,6 @@
 import { AssayTask } from '../types/escrow';
 
-export const CANONICAL_CONTRACT_ADDRESS = "0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7";
+export const CANONICAL_CONTRACT_ADDRESS = "0x3Db85A887d9affF398a3a1876CF1FDF5640699DE";
 export const DEFAULT_CONTRACT_ADDRESS = CANONICAL_CONTRACT_ADDRESS;
 
 export async function fetchAllAssayTasks(contractAddress = DEFAULT_CONTRACT_ADDRESS): Promise<AssayTask[]> {
