@@ -9,7 +9,7 @@
 
 🔗 **Live Vercel Application**: [https://bio-intel-escrow-genlayer.vercel.app](https://bio-intel-escrow-genlayer.vercel.app)  
 🐙 **GitHub Repository**: [https://github.com/tuannguyen1995/bio-intel-escrow-genlayer](https://github.com/tuannguyen1995/bio-intel-escrow-genlayer)  
-📝 **Canonical Deployed Contract (Studionet)**: [`0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7`](https://explorer-studio.genlayer.com/address/0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7)
+📝 **Canonical Deployed Contract (Studionet)**: [`0x3Db85A887d9affF398a3a1876CF1FDF5640699DE`](https://explorer-studio.genlayer.com/address/0x3Db85A887d9affF398a3a1876CF1FDF5640699DE)
 
 ---
 
