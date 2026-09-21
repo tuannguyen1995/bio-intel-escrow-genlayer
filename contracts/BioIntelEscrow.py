@@ -5,6 +5,9 @@ from dataclasses import dataclass
 import json
 import hashlib
 
+class UserError(Exception):
+    pass
+
 @allow_storage
 @dataclass
 class AssayTask:
@@ -29,9 +32,9 @@ class AssayTask:
     disputed_at: bigint
     is_zk_mode: bool
     zk_proof_hash: str
-    lab_provenance_sig: str   # Submitted Provenance: optional self-reported lab signature (unattested metadata)
-    provenance_type: str      # Submitted Provenance: self-reported metadata type (LIMS_RAW_EXPORT, HARDWARE_SERIAL_METADATA, LAB_SIGNATURE_METADATA)
-    instrument_id: str        # Submitted Provenance: self-reported instrument hardware model & serial number (unattested metadata)
+    lab_provenance_sig: str   # Submitted Laboratory Metadata: optional self-reported lab signature (unattested metadata)
+    provenance_type: str      # Submitted Laboratory Metadata: self-reported metadata type (LIMS_RAW_EXPORT, LAB_EQUIPMENT_METADATA, LAB_SIGNATURE_METADATA)
+    instrument_id: str        # Submitted Laboratory Metadata: self-reported instrument equipment model & serial number (unattested run metadata)
 
 class Contract(gl.Contract):
     platform_admin: str
@@ -363,11 +366,11 @@ EVIDENCE INTEGRITY & IMMUTABLE HASH COMMITMENTS:
 - Baseline Protocol Snapshot Hash: {proto_hash if proto_hash else 'NOT_COMMITTED'}
 - Telemetry Data Snapshot Hash: {log_hash if log_hash else 'NOT_COMMITTED'}
 
-SUBMITTED LABORATORY PROVENANCE METADATA (UNATTESTED):
-- Provenance Type: {prov_type}
+SUBMITTED LABORATORY METADATA (UNATTESTED):
+- Metadata Type: {prov_type}
 - Instrument Model / ID: {inst_id if inst_id else 'UNSPECIFIED_DEVICE'}
 - Self-Reported Lab Signature: {lab_sig if lab_sig else 'NONE'}
-- Notice: Laboratory and instrument provenance are self-reported metadata submitted by the lab and have not been attested by cryptographic hardware enclaves.
+- Notice: Laboratory and instrument run records are self-reported metadata submitted by the lab and have not been attested by cryptographic secure enclaves.
 
 STATISTICAL TOLERANCE CRITERIA:
 {tol_str}
@@ -587,11 +590,11 @@ IMMUTABLE EVIDENCE COMMITMENTS:
 - Protocol Spec Snapshot Hash: {proto_hash}
 - Telemetry Data Snapshot Hash: {log_hash if not is_zk else task.zk_proof_hash}
 
-SUBMITTED LABORATORY PROVENANCE METADATA (UNATTESTED):
-- Provenance Type: {prov_type}
+SUBMITTED LABORATORY METADATA (UNATTESTED):
+- Metadata Type: {prov_type}
 - Instrument Model / ID: {inst_id}
 - Self-Reported Lab Signature: {lab_sig if lab_sig else 'NONE'}
-- Notice: Laboratory and instrument provenance are self-reported metadata submitted by the lab and have not been attested by cryptographic hardware enclaves.
+- Notice: Laboratory and instrument run records are self-reported metadata submitted by the lab and have not been attested by cryptographic secure enclaves.
 
 SPONSOR'S SCIENTIFIC DISPUTE REASON:
 {dispute_reason}

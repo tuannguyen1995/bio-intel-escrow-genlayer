@@ -9,7 +9,7 @@
 
 🔗 **Live Vercel Application**: [https://bio-intel-escrow-genlayer.vercel.app](https://bio-intel-escrow-genlayer.vercel.app)  
 🐙 **GitHub Repository**: [https://github.com/tuannguyen1995/bio-intel-escrow-genlayer](https://github.com/tuannguyen1995/bio-intel-escrow-genlayer)  
-📝 **Canonical Deployed Contract (Studionet)**: [`0x3Db85A887d9affF398a3a1876CF1FDF5640699DE`](https://explorer-studio.genlayer.com/address/0x3Db85A887d9affF398a3a1876CF1FDF5640699DE)
+📝 **Canonical Deployed Contract (Studionet)**: [`0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7`](https://explorer-studio.genlayer.com/address/0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7)
 
 ---
 
@@ -19,11 +19,11 @@
 - **Immutable State Proofs**: To prevent mutable HTTP/HTTPS URL drift or post-submission tampering, both the baseline protocol (`protocol_spec_hash`) and the replication telemetry (`assay_log_hash`) require an immutable content hash (SHA-256 or IPFS CID) committed on-chain.
 - **Validator Snapshot Comparison**: GenLayer validator nodes verify rendered content against the committed digest under the Equivalence Principle. If any hash mismatch or payload tampering is detected, consensus triggers `ESCALATE` (or `REFUND`) with 100% confidence.
 
-### 2. Submitted Laboratory Provenance Metadata
-- **Provenance Transparency**: Accommodates submitted laboratory and instrument metadata without overstating hardware claims:
+### 2. Submitted Laboratory Run Metadata
+- **Run Metadata Transparency**: Accommodates submitted laboratory and instrument metadata without any exaggerated claims:
   - **LIMS Export Metadata**: Digest of raw LIMS database export runs.
-  - **Instrument Hardware Metadata**: Self-reported spectrometer serial IDs (e.g. `Biotek-Synergy-H1-SN48821`).
-  - **Laboratory Metadata Signature**: Self-reported ECDSA signature from participating replication laboratories (`lab_provenance_sig`).
+  - **Instrument Equipment Metadata**: Self-reported spectrometer serial IDs (e.g. `Biotek-Synergy-H1-SN48821`).
+  - **Laboratory Run Signature**: Self-reported ECDSA signature from participating replication laboratories (`lab_provenance_sig`).
 - **GenLayer Optimistic Democracy + Equivalence Principle Consensus**: Consensus validators evaluate evidence consistency against quantitative tolerances and submitted provenance metadata.
 
 ### 3. Safe Settlement Recovery: Pull-over-Push Withdrawable Credits Vault
@@ -45,8 +45,8 @@ BioIntelEscrow/
 ├── contracts/
 │   └── BioIntelEscrow.py            # Intelligent GenLayer smart contract in Python
 ├── tests/
-│   ├── test_bio_intel_escrow.py     # GenLayer VM runtime mock unit test suite
-│   └── test_direct_mode_consensus.py # Dedicated Direct Mode / Studio consensus simulation
+│   └── test_bio_intel.py            # Official GenLayer Direct Mode test suite (gltest)
+├── gltest.config.yaml               # Official GenLayer testing suite configuration
 ├── scripts/
 │   └── verify_contract.py           # Contract verification & test runner script
 ├── frontend/                        # DeSci Cyber-Laboratory HUD UI
@@ -57,10 +57,10 @@ BioIntelEscrow/
 │   │   │   ├── SpectrogramDiffViewer.tsx # Dual-pane spectrogram & kinetic curve diff chart
 │   │   │   ├── ConsensusReactionHUD.tsx  # Radar metric breakdown, Hash Integrity & Provenance HUD
 │   │   │   ├── CountdownClock.tsx   # LED countdown timer for dispute cooling-off
-│   │   │   ├── TaskCard.tsx         # Assay task status with Spec Hash & Hardware Provenance tags
+│   │   │   ├── TaskCard.tsx         # Assay task status with Spec Hash & Submitted Lab Metadata tags
 │   │   │   ├── CreateTaskModal.tsx  # Sponsor bounty creation with Spec Hash Commitment
 │   │   │   ├── AcceptTaskModal.tsx  # Lab 20% stake cashing form
-│   │   │   ├── SubmitTelemetryModal.tsx # Telemetry submission with Hardware Provenance & LIMS export
+│   │   │   ├── SubmitTelemetryModal.tsx # Telemetry submission with Lab Equipment Metadata & LIMS export
 │   │   │   ├── RaiseDisputeModal.tsx# Dispute filing with 10% Appeal Bond
 │   │   │   ├── ResolveEscalationModal.tsx # Admin arbitration settlement panel
 │   │   │   └── AIConsensusModal.tsx # Multi-node AI consensus workflow visualizer
@@ -81,8 +81,12 @@ BioIntelEscrow/
 
 ## ⚡ Verification & Test Execution
 
-### 1. Run Smart Contract Test Suite
+### 1. Run Official GenLayer Direct Mode Test Suite
 ```bash
+gltest tests/ -v
+# or
+pytest tests/ -v
+# or
 python scripts/verify_contract.py
 ```
 Expected output:
@@ -91,15 +95,25 @@ Expected output:
  BioIntelEscrow - Contract Verification & Test Suite Runner
 ======================================================================
 [OK] Contract file detected: contracts\BioIntelEscrow.py
-[OK] Test suite detected: tests\test_bio_intel_escrow.py
+[OK] GenLayer Direct Mode test suite detected: tests\test_bio_intel.py
 [OK] Contract Python syntax validation: PASSED
 
---- Running Unit Test & Direct Mode Consensus Suites ---
-.................
-Ran 17 tests in 0.005s
-OK
+--- Running GenLayer Direct Mode Test Suite (gltest.direct) ---
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.1.1, pluggy-1.6.0
+plugins: anyio-4.14.2, genlayer-test-0.29.2
+collecting ... collected 5 items
+
+tests/test_bio_intel.py::test_evidence_drift_during_dispute PASSED       [ 20%]
+tests/test_bio_intel.py::test_validator_disagreement PASSED              [ 40%]
+tests/test_bio_intel.py::test_withdrawal_settlement PASSED               [ 60%]
+tests/test_bio_intel.py::test_under_staking_reverts PASSED               [ 80%]
+tests/test_bio_intel.py::test_ipfs_cid_validation_and_url_binding PASSED [100%]
+
+============================== 5 passed in 0.52s ==============================
+
 ======================================================================
- SUCCESS: All 17 BioIntelEscrow tests (Core & Direct Mode) passed!
+ SUCCESS: All BioIntelEscrow GenLayer Direct Mode tests passed!
 ======================================================================
 ```
 

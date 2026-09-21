@@ -1,0 +1,9 @@
+# GenLayer Testing Suite Configuration
+paths:
+  contracts: contracts
+  artifacts: artifacts
+
+networks:
+  default: studionet
+  studionet:
+    url: https://studio.genlayer.com/api

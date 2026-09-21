@@ -9,7 +9,7 @@ def main():
     print("=" * 70)
 
     contract_path = os.path.join("contracts", "BioIntelEscrow.py")
-    test_path = os.path.join("tests", "test_bio_intel_escrow.py")
+    test_path = os.path.join("tests", "test_bio_intel.py")
 
     if not os.path.exists(contract_path):
         print(f"[ERROR] Contract file missing: {contract_path}")
@@ -19,7 +19,7 @@ def main():
     if not os.path.exists(test_path):
         print(f"[ERROR] Test file missing: {test_path}")
         sys.exit(1)
-    print(f"[OK] Test suite detected: {test_path}")
+    print(f"[OK] GenLayer Direct Mode test suite detected: {test_path}")
 
     # Syntax check contract
     try:
@@ -31,15 +31,16 @@ def main():
         print(f"[ERROR] Syntax check failed: {e}")
         sys.exit(1)
 
-    # Run unittest suite (17 tests covering contract execution & direct mode simulation)
-    print("\n--- Running Unit Test & Direct Mode Consensus Suites ---")
-    result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests"], capture_output=True, text=True)
+    # Run official GenLayer Direct Mode test suite via pytest / gltest
+    print("\n--- Running GenLayer Direct Mode Test Suite (gltest.direct) ---")
+    result = subprocess.run([sys.executable, "-m", "pytest", test_path, "-v"], capture_output=True, text=True)
     print(result.stdout)
-    print(result.stderr)
+    if result.stderr:
+        print(result.stderr)
 
     if result.returncode == 0:
         print("=" * 70)
-        print(" SUCCESS: All 17 BioIntelEscrow tests (Core & Direct Mode) passed!")
+        print(" SUCCESS: All BioIntelEscrow GenLayer Direct Mode tests passed!")
         print("=" * 70)
     else:
         print("[ERROR] Test suite failed.")

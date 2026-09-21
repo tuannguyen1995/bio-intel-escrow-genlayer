@@ -160,7 +160,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
 
       </div>
 
-      {/* Evidence Integrity & Hardware Provenance Audit Row */}
+      {/* Evidence Integrity & Submitted Laboratory Metadata Audit Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 font-mono text-xs">
         <div className="bg-bio-dark/70 border border-bio-border p-2.5 rounded-lg flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -175,7 +175,7 @@ export const ConsensusReactionHUD: React.FC<ConsensusReactionHUDProps> = ({
         <div className="bg-bio-dark/70 border border-bio-border p-2.5 rounded-lg flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Cpu className="w-4 h-4 text-bio-emerald" />
-            <span className="text-[11px] text-slate-300 font-bold uppercase">Submitted Provenance Metadata:</span>
+            <span className="text-[11px] text-slate-300 font-bold uppercase">Submitted Lab Metadata:</span>
           </div>
           <span className="text-[10px] text-bio-emerald font-semibold">
             {task.instrument_id ? `${task.provenance_type || 'Metadata'}: ${task.instrument_id}` : "Self-Reported Log"}

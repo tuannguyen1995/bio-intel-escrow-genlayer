@@ -1,6 +1,6 @@
 import { createClient, chains, createAccount, generatePrivateKey } from 'genlayer-js';
 
-const CONTRACT_ADDRESS = "0x3Db85A887d9affF398a3a1876CF1FDF5640699DE";
+const CONTRACT_ADDRESS = "0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7";
 const SPONSOR_PRIVATE_KEY = process.env.PRIVATE_KEY;
 
 async function main() {
@@ -70,8 +70,8 @@ async function main() {
     await labClient.waitForTransactionReceipt({ hash: acceptHash });
     console.log("✓ Task accepted by Lab with 20% stake!");
 
-    // 4. Lab submits telemetry with Evidence Hash and Hardware Instrument Attestation
-    console.log(`\n[4/5] [Lab] Submitting telemetry with LIMS & Instrument Provenance for AI validation...`);
+    // 4. Lab submits telemetry with Evidence Hash and Lab Equipment Metadata
+    console.log(`\n[4/5] [Lab] Submitting telemetry with LIMS & Equipment Metadata for AI validation...`);
     const submitHash = await labClient.writeContract({
       address: CONTRACT_ADDRESS,
       functionName: 'submit_assay_telemetry',
@@ -82,7 +82,7 @@ async function main() {
         "",    // zk_proof_hash
         "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", // assay_log_hash
         "0x9c3f4e2b1a8d7c6e5f4a3b2c1d0e9f8a7b6c5d4e...lab_sig", // lab_provenance_sig
-        "SPECTROMETER_HARDWARE_ATTESTATION", // provenance_type
+        "LAB_EQUIPMENT_METADATA", // provenance_type
         "Biotek-Synergy-H1-SN48821" // instrument_id
       ],
       value: 0n,

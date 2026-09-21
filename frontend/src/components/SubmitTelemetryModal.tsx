@@ -241,7 +241,7 @@ export const SubmitTelemetryModal: React.FC<SubmitTelemetryModalProps> = ({
                   className="w-full bg-bio-dark border border-bio-border rounded px-2.5 py-1.5 text-slate-200 text-[11px] focus:border-bio-emerald focus:outline-none"
                 >
                   <option value="LIMS_RAW_EXPORT">LIMS Export Metadata</option>
-                  <option value="SPECTROMETER_HARDWARE_ATTESTATION">Hardware Serial Metadata</option>
+                  <option value="LAB_EQUIPMENT_METADATA">Instrument / Equipment Run Metadata</option>
                   <option value="CERTIFIED_LAB_SIG">Self-Reported Lab Signature</option>
                 </select>
               </div>
