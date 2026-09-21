@@ -1,6 +1,6 @@
 import { createClient, chains } from 'genlayer-js';
 
-const CONTRACT_ADDRESS = "0xa6c559E9ca708d628cB0e4F3bfE2BbE895D7cDA7";
+const CONTRACT_ADDRESS = "0xbd3b11dd14C5C300B76F445DfF3F375930fdAdE9";
 
 async function main() {
   console.log("=========================================");
